@@ -41,6 +41,8 @@ dependencies:
   drift: ^2.32.0
   drift_flutter: ^0.3.0
 
+  google_fonts: ^8.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
