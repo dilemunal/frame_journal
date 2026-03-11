@@ -115,12 +115,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
+                      // Daha havadar, buzlu cam efekti için koyu siyah yerine
+                      // düşük opaklıklı beyaz kullanıyoruz.
+                      color: Colors.white.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        width: 0.8,
-                      ),
                     ),
                     child: Form(
                       key: _formKey,
