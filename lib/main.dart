@@ -34,7 +34,6 @@ class MyApp extends ConsumerWidget {
       colorScheme: ColorScheme.fromSeed(
         seedColor: accent,
         brightness: Brightness.light,
-        background: background,
         surface: surface,
       ),
     );

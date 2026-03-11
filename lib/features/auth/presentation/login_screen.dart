@@ -90,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
           Container(
-            color: Colors.black.withOpacity(0.45),
+            color: Colors.black.withValues(alpha: 0.45),
           ),
           // Grain overlay
           IgnorePointer(
@@ -115,10 +115,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.55),
+                      color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.16),
+                        color: Colors.white.withValues(alpha: 0.16),
                         width: 0.8,
                       ),
                     ),
@@ -138,8 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color:
-                                        Colors.white.withOpacity(0.85),
+                                    color: Colors.white.withValues(alpha: 0.85),
                                     width: 1.2,
                                   ),
                                 ),
@@ -152,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           BorderRadius.circular(6),
                                       border: Border.all(
                                         color: Colors.white
-                                            .withOpacity(0.6),
+                                            .withValues(alpha: 0.6),
                                         width: 1.1,
                                       ),
                                     ),
@@ -166,7 +165,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ?.copyWith(
                                   letterSpacing: 4,
                                   fontWeight: FontWeight.w300,
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                 ),
                               ),
                             ],
@@ -176,7 +175,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             'A hybrid journal for your days, dives and details.',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white.withOpacity(0.66),
+                              color: Colors.white.withValues(alpha: 0.66),
                               height: 1.5,
                             ),
                           ),
@@ -248,7 +247,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Expanded(
                                 child: Container(
                                   height: 1,
-                                  color: Colors.white.withOpacity(0.12),
+                                  color:
+                                      Colors.white.withValues(alpha: 0.12),
                                 ),
                               ),
                               Padding(
@@ -259,14 +259,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   'or continue with',
                                   style:
                                       theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.white.withOpacity(0.4),
+                                    color: Colors.white
+                                        .withValues(alpha: 0.4),
                                   ),
                                 ),
                               ),
                               Expanded(
                                 child: Container(
                                   height: 1,
-                                  color: Colors.white.withOpacity(0.12),
+                                  color:
+                                      Colors.white.withValues(alpha: 0.12),
                                 ),
                               ),
                             ],
@@ -281,7 +283,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       : _handleGoogleLogin,
                                   style: OutlinedButton.styleFrom(
                                     side: BorderSide(
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: Colors.white
+                                          .withValues(alpha: 0.3),
                                     ),
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
@@ -300,7 +303,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       : _handleAppleLogin,
                                   style: OutlinedButton.styleFrom(
                                     side: BorderSide(
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: Colors.white
+                                          .withValues(alpha: 0.3),
                                     ),
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
@@ -354,22 +358,22 @@ class _UnderlineTextField extends StatelessWidget {
       keyboardType: keyboardType,
       validator: validator,
       style: theme.textTheme.bodyMedium?.copyWith(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
       ),
-      cursorColor: Colors.white.withOpacity(0.9),
+      cursorColor: Colors.white.withValues(alpha: 0.9),
       decoration: InputDecoration(
         prefixIcon: Icon(
           icon,
           size: 18,
-          color: Colors.white.withOpacity(0.7),
+          color: Colors.white.withValues(alpha: 0.7),
         ),
         labelText: label,
         labelStyle: theme.textTheme.bodySmall?.copyWith(
-          color: Colors.white.withOpacity(0.6),
+          color: Colors.white.withValues(alpha: 0.6),
         ),
         enabledBorder: UnderlineInputBorder(
           borderSide: BorderSide(
-            color: Colors.white.withOpacity(0.25),
+            color: Colors.white.withValues(alpha: 0.25),
           ),
         ),
         focusedBorder: const UnderlineInputBorder(

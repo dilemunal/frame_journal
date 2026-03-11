@@ -2,21 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/token_storage.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/di/providers.dart';
+import '../../../core/di/core_providers.dart';
 
 class AuthState {
-  const AuthState({
-    required this.isAuthenticated,
-    this.email,
-  });
+  const AuthState({required this.isAuthenticated, this.email});
 
   final bool isAuthenticated;
   final String? email;
 
-  AuthState copyWith({
-    bool? isAuthenticated,
-    String? email,
-  }) {
+  AuthState copyWith({bool? isAuthenticated, String? email}) {
     return AuthState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       email: email ?? this.email,
@@ -44,10 +38,7 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
 
     final response = await _apiClient.post(
       '/api/auth/login',
-      data: <String, dynamic>{
-        'email': email,
-        'password': password,
-      },
+      data: <String, dynamic>{'email': email, 'password': password},
     );
 
     final data = response.data as Map<String, dynamic>;
@@ -90,4 +81,3 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
     state = state.copyWith(isAuthenticated: true);
   }
 }
-

@@ -77,9 +77,9 @@ class _HorizonLine extends StatelessWidget {
           gradient: LinearGradient(
             colors: [
               Colors.transparent,
-              const Color(0xFFC8BEA8).withOpacity(0.45),
-              const Color(0xFFD2C6AC).withOpacity(0.6),
-              const Color(0xFFC8BEA8).withOpacity(0.45),
+              const Color(0xFFC8BEA8).withValues(alpha: 0.45),
+              const Color(0xFFD2C6AC).withValues(alpha: 0.6),
+              const Color(0xFFC8BEA8).withValues(alpha: 0.45),
               Colors.transparent,
             ],
           ),
@@ -112,7 +112,7 @@ class _WaterLines extends StatelessWidget {
                     height: 1,
                     margin: const EdgeInsets.symmetric(horizontal: 32),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.32),
+                color: Colors.white.withValues(alpha: 0.32),
                       borderRadius: BorderRadius.circular(1),
                     ),
                   ),
@@ -144,7 +144,7 @@ class _TopBar extends StatelessWidget {
               'İyi Günler',
               style: textTheme.displaySmall?.copyWith(
                 fontWeight: FontWeight.w200,
-                color: const Color(0xFF201C14).withOpacity(0.8),
+                color: const Color(0xFF201C14).withValues(alpha: 0.8),
                 letterSpacing: -0.6,
               ),
             ),
@@ -179,13 +179,13 @@ class _WeekRow extends StatelessWidget {
     final baseStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
           letterSpacing: 1,
           fontWeight: FontWeight.w300,
-          color: const Color(0xFF3C3728).withOpacity(0.35),
+          color: const Color(0xFF3C3728).withValues(alpha: 0.35),
         );
 
     Widget chip(String label, {bool isToday = false}) {
       final style = baseStyle?.copyWith(
         color: isToday
-            ? const Color(0xFF28241A).withOpacity(0.68)
+            ? const Color(0xFF28241A).withValues(alpha: 0.68)
             : baseStyle.color,
       );
       return Padding(
@@ -199,7 +199,7 @@ class _WeekRow extends StatelessWidget {
                 width: 3,
                 height: 3,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF64583C).withOpacity(0.5),
+                  color: const Color(0xFF64583C).withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -240,7 +240,7 @@ class _TodaySection extends StatelessWidget {
             Text(
               '✦',
               style: textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF242016).withOpacity(0.55),
+                color: const Color(0xFF242016).withValues(alpha: 0.55),
               ),
             ),
             const SizedBox(width: 6),
@@ -248,7 +248,7 @@ class _TodaySection extends StatelessWidget {
               'Bugün için',
               style: textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w300,
-                color: const Color(0xFF242016).withOpacity(0.55),
+                color: const Color(0xFF242016).withValues(alpha: 0.55),
                 letterSpacing: 0.3,
               ),
             ),
@@ -328,7 +328,7 @@ class _TemplateCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 12,
                         fontWeight: FontWeight.w300,
-                        color: const Color(0xFF221E14).withOpacity(0.72),
+                        color: const Color(0xFF221E14).withValues(alpha: 0.72),
                         height: 1.2,
                       ),
                 ),
@@ -357,15 +357,15 @@ class _BottomNavPill extends StatelessWidget {
             child: Container(
               height: 56,
               decoration: BoxDecoration(
-                color: const Color(0xFFD2CFC3).withOpacity(0.52),
+                color: const Color(0xFFD2CFC3).withValues(alpha: 0.52),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.65),
+                  color: Colors.white.withValues(alpha: 0.65),
                   width: 0.8,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF373020).withOpacity(0.09),
+                    color: const Color(0xFF373020).withValues(alpha: 0.09),
                     offset: const Offset(0, 2),
                     blurRadius: 14,
                   ),
@@ -414,14 +414,18 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = const Color(0xFF241C16).withOpacity(0.75);
-    final inactiveColor = const Color(0xFF504834).withOpacity(0.38);
+    const activeBase = Color(0xFF241C16);
+    const inactiveBase = Color(0xFF504834);
+    final activeColor = activeBase.withValues(alpha: 0.75);
+    final inactiveColor = inactiveBase.withValues(alpha: 0.38);
 
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         decoration: BoxDecoration(
-          color: isActive ? Colors.white.withOpacity(0.38) : Colors.transparent,
+          color: isActive
+              ? Colors.white.withValues(alpha: 0.38)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Column(
@@ -440,8 +444,8 @@ class _NavItem extends StatelessWidget {
                     letterSpacing: 0.5,
                     fontWeight: FontWeight.w300,
                     color: isActive
-                        ? const Color(0xFF241C16).withOpacity(0.7)
-                        : const Color(0xFF504834).withOpacity(0.35),
+                        ? activeBase.withValues(alpha: 0.7)
+                        : inactiveBase.withValues(alpha: 0.35),
                   ),
             ),
           ],
@@ -471,12 +475,12 @@ class _Avatar extends StatelessWidget {
           ],
         ),
         border: Border.all(
-          color: Colors.white.withOpacity(0.7),
+          color: Colors.white.withValues(alpha: 0.7),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             offset: const Offset(0, 2),
             blurRadius: 8,
           ),
@@ -527,10 +531,10 @@ class _GlassContainer extends StatelessWidget {
         child: Container(
           padding: padding ?? EdgeInsets.zero,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(opacity),
+            color: Colors.white.withValues(alpha: opacity),
             borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(
-              color: Colors.white.withOpacity(borderOpacity),
+              color: Colors.white.withValues(alpha: borderOpacity),
               width: 0.8,
             ),
           ),
