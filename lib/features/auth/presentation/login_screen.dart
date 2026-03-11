@@ -30,7 +30,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      await ref.read(authNotifierProvider.notifier).loginWithEmail(
+      await ref
+          .read(authNotifierProvider.notifier)
+          .loginWithEmail(
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
@@ -84,14 +86,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/images/login_background.jpg'),
+                image: AssetImage('assets/images/backgrounf.webp'),
                 fit: BoxFit.cover,
               ),
             ),
           ),
-          Container(
-            color: Colors.black.withValues(alpha: 0.45),
-          ),
+          Container(color: Colors.black.withValues(alpha: 0.45)),
           // Grain overlay
           IgnorePointer(
             child: Container(
@@ -147,11 +147,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     width: 18,
                                     height: 18,
                                     decoration: BoxDecoration(
-                                      borderRadius:
-                                          BorderRadius.circular(6),
+                                      borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.6),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.6,
+                                        ),
                                         width: 1.1,
                                       ),
                                     ),
@@ -161,8 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SizedBox(width: 10),
                               Text(
                                 'Frame Journal',
-                                style: theme.textTheme.titleMedium
-                                    ?.copyWith(
+                                style: theme.textTheme.titleMedium?.copyWith(
                                   letterSpacing: 4,
                                   fontWeight: FontWeight.w300,
                                   color: Colors.white.withValues(alpha: 0.9),
@@ -215,11 +214,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           SizedBox(
                             height: 46,
                             child: ElevatedButton(
-                              onPressed:
-                                  _isLoading ? null : _handleEmailLogin,
+                              onPressed: _isLoading ? null : _handleEmailLogin,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color(0xFF1DA9A6),
+                                backgroundColor: const Color(0xFF1DA9A6),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(999),
@@ -234,8 +231,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         strokeWidth: 2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
+                                              Colors.white,
+                                            ),
                                       ),
                                     )
                                   : const Text('Sign In'),
@@ -247,8 +244,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Expanded(
                                 child: Container(
                                   height: 1,
-                                  color:
-                                      Colors.white.withValues(alpha: 0.12),
+                                  color: Colors.white.withValues(alpha: 0.12),
                                 ),
                               ),
                               Padding(
@@ -257,18 +253,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                                 child: Text(
                                   'or continue with',
-                                  style:
-                                      theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.4),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.4),
                                   ),
                                 ),
                               ),
                               Expanded(
                                 child: Container(
                                   height: 1,
-                                  color:
-                                      Colors.white.withValues(alpha: 0.12),
+                                  color: Colors.white.withValues(alpha: 0.12),
                                 ),
                               ),
                             ],
@@ -283,13 +276,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       : _handleGoogleLogin,
                                   style: OutlinedButton.styleFrom(
                                     side: BorderSide(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.3),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.3,
+                                      ),
                                     ),
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(999),
+                                      borderRadius: BorderRadius.circular(999),
                                     ),
                                   ),
                                   child: const Text('Google'),
@@ -303,13 +296,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       : _handleAppleLogin,
                                   style: OutlinedButton.styleFrom(
                                     side: BorderSide(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.3),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.3,
+                                      ),
                                     ),
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(999),
+                                      borderRadius: BorderRadius.circular(999),
                                     ),
                                   ),
                                   child: const Text('Apple'),
@@ -372,18 +365,12 @@ class _UnderlineTextField extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.6),
         ),
         enabledBorder: UnderlineInputBorder(
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.25),
-          ),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
         ),
         focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(
-            color: Color(0xFF1DA9A6),
-            width: 1.4,
-          ),
+          borderSide: BorderSide(color: Color(0xFF1DA9A6), width: 1.4),
         ),
       ),
     );
   }
 }
-
