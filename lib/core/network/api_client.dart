@@ -1,13 +1,29 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
+String _defaultBaseUrl() {
+  if (kIsWeb) {
+    return 'http://localhost:8080';
+  }
+  if (Platform.isAndroid) {
+    // Android emulator'dan host makineye erişim.
+    return 'http://10.0.2.2:8080';
+  }
+  // iOS simulator veya gerçek cihaz için (lokal backend).
+  return 'http://localhost:8080';
+}
 
 class ApiClient {
   ApiClient({
     Dio? dio,
-    this.baseUrl = 'https://api.frame-journal.dev',
-  }) : _dio = dio ??
+    String? baseUrl,
+  })  : baseUrl = baseUrl ?? _defaultBaseUrl(),
+        _dio = dio ??
             Dio(
               BaseOptions(
-                baseUrl: baseUrl,
+                baseUrl: baseUrl ?? _defaultBaseUrl(),
                 connectTimeout: const Duration(seconds: 10),
                 receiveTimeout: const Duration(seconds: 15),
               ),

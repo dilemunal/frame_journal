@@ -81,3 +81,8 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
     state = state.copyWith(isAuthenticated: true);
   }
 }
+
+final AutoDisposeNotifierProvider<AuthNotifier, AuthState>
+authNotifierProvider = AutoDisposeNotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
