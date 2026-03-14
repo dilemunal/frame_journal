@@ -110,6 +110,11 @@ class PromptQuestions {
         return q;
       }
     }
+    // Hepsi bitti: bugün listesini sıfırla ve yeniden başlat.
+    if (shuffled.isNotEmpty) {
+      await prefs.setString(key, jsonEncode(<String>[shuffled.first]));
+      return shuffled.first;
+    }
     return null;
   }
 }

@@ -21,7 +21,11 @@ class _AtmosphereStripState extends ConsumerState<AtmosphereStrip> {
     _fixedTime = _formatTime(DateTime.now());
   }
 
-  Widget _buildStrip(BuildContext context, {String? location, String? weatherPart}) {
+  Widget _buildStrip(
+    BuildContext context, {
+    required String location,
+    String? weatherPart,
+  }) {
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(
       color: AppColors.textMuted(AppColors.textPrimary),
       fontSize: 12,
@@ -31,16 +35,15 @@ class _AtmosphereStripState extends ConsumerState<AtmosphereStrip> {
       color: AppColors.surface,
       child: Row(
         children: [
-          if (location != null && location.isNotEmpty)
-            Expanded(
-              child: Text(
-                '📍 $location',
-                style: style,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+          Expanded(
+            child: Text(
+              '📍 $location',
+              style: style,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          if (location != null && location.isNotEmpty) const SizedBox(width: 8),
+          ),
+          const SizedBox(width: 8),
           Text(_fixedTime, style: style),
           if (weatherPart != null && weatherPart.isNotEmpty) ...[
             Text('  •  ', style: style),
@@ -64,37 +67,22 @@ class _AtmosphereStripState extends ConsumerState<AtmosphereStrip> {
 
     return async.when(
       data: (atm) {
-        if (atm != null) {
-          final weatherPart = atm.weather != null
-              ? '${atm.weather!.emoji} ${atm.weather!.temp}°C ${atm.weather!.description}'
-              : null;
-          return AnimatedOpacity(
-            opacity: 1,
-            duration: const Duration(milliseconds: 300),
-            child: _buildStrip(
-              context,
-              location: atm.location.placeName,
-              weatherPart: weatherPart,
-            ),
-          );
-        }
-        // Konum/hava alınamadı: yine de saat göster (izin kapalı veya API anahtarı yok)
-        return _buildStrip(
-          context,
-          location: 'Konum kapalı',
-          weatherPart: null,
+        if (atm == null) return const SizedBox.shrink();
+        final weatherPart = atm.weather != null
+            ? '${atm.weather!.emoji} ${atm.weather!.temp}°C ${atm.weather!.description}'
+            : null;
+        return AnimatedOpacity(
+          opacity: 1,
+          duration: const Duration(milliseconds: 300),
+          child: _buildStrip(
+            context,
+            location: atm.location.placeName,
+            weatherPart: weatherPart,
+          ),
         );
       },
-      loading: () => _buildStrip(
-        context,
-        location: 'Konum alınıyor...',
-        weatherPart: null,
-      ),
-      error: (_, __) => _buildStrip(
-        context,
-        location: 'Konum alınamadı',
-        weatherPart: null,
-      ),
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 

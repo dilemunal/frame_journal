@@ -97,9 +97,11 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
         final timestamp = DateTime.tryParse(data['timestamp'] as String? ?? '');
         final text = data['text'] as String? ?? '';
         final moodValue = (data['moodValue'] as num?)?.toDouble() ?? 0.5;
-        if (timestamp == null ||
-            DateTime.now().difference(timestamp).inHours >= 24 ||
-            text.length <= 10) {
+        if (timestamp != null && DateTime.now().difference(timestamp).inHours >= 24) {
+          await prefs.remove('draft_entry');
+          return;
+        }
+        if (timestamp == null || text.length <= 10) {
           return;
         }
         if (!mounted) return;
@@ -111,6 +113,8 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   void _showDraftRecoverySheet(String text, double moodValue) {
     showModalBottomSheet<void>(
       context: context,
+      isDismissible: false,
+      enableDrag: false,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
@@ -210,7 +214,14 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
 
   Future<void> _saveEntry() async {
     final text = _freeText.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bir şeyler yaz.')),
+        );
+      }
+      return;
+    }
     final db = ref.read(appDatabaseProvider);
     final asyncAtm = ref.read(atmosphereProvider);
     final atm = asyncAtm.valueOrNull;
@@ -237,20 +248,35 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
         ? jsonEncode({'photos': _photoPaths})
         : null;
 
-    await db.into(db.appEntries).insert(
-          AppEntriesCompanion.insert(
-            userId: kLocalUserId,
-            templateId: widget.templateId != null
-                ? Value(widget.templateId)
-                : const Value.absent(),
-            freeText: Value(text),
-            mood: Value(moodEmojiStr),
-            valuesJson: valuesJsonStr != null ? Value(valuesJsonStr) : const Value.absent(),
-            weatherJson: weatherJson != null ? Value(weatherJson) : const Value.absent(),
-            locationJson: locationJson != null ? Value(locationJson) : const Value.absent(),
-            createdAt: DateTime.now(),
-          ),
+    try {
+      await db.into(db.appEntries).insert(
+            AppEntriesCompanion.insert(
+              userId: kLocalUserId,
+              templateId: widget.templateId != null
+                  ? Value(widget.templateId)
+                  : const Value.absent(),
+              freeText: Value(text),
+              mood: Value(moodEmojiStr),
+              valuesJson: valuesJsonStr != null
+                  ? Value(valuesJsonStr)
+                  : const Value.absent(),
+              weatherJson: weatherJson != null
+                  ? Value(weatherJson)
+                  : const Value.absent(),
+              locationJson: locationJson != null
+                  ? Value(locationJson)
+                  : const Value.absent(),
+              createdAt: DateTime.now(),
+            ),
+          );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kaydedilemedi, tekrar dene.')),
         );
+      }
+      return;
+    }
 
     await _clearDraft();
     ref.invalidate(recentEntriesProvider);
@@ -258,9 +284,47 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     if (mounted) context.pop();
   }
 
+  Future<void> _handleBack() async {
+    final hasText = _freeText.trim().isNotEmpty;
+    if (!hasText) {
+      if (mounted) context.pop();
+      return;
+    }
+    if (!mounted) return;
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Çıkmak istediğine emin misin?'),
+        content:
+            const Text('Yazdıkların taslak olarak kaydedilecek.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Hayır, devam et'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Evet, çık'),
+          ),
+        ],
+      ),
+    );
+    if (shouldExit == true) {
+      await _persistDraft();
+      if (mounted) context.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
+    final templatesAsync = ref.watch(journalTemplatesProvider);
+    final selectedTemplate = templatesAsync.maybeWhen(
+      data: (list) => widget.templateId == null
+          ? null
+          : list.where((t) => t.id == widget.templateId).firstOrNull,
+      orElse: () => null,
+    );
     // Opak arka plan: mood'a göre hafif soğuk → sıcak ton (şeffaf değil, siyah görünmesin)
     final backgroundColor = Color.lerp(
       const Color(0xFFE8ECF0),
@@ -281,11 +345,30 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                 scrolledUnderElevation: 0,
                 leading: IconButton(
                   icon: Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
-                  onPressed: () async {
-                    await _clearDraft();
-                    if (mounted) context.pop();
-                  },
+                  onPressed: _handleBack,
                 ),
+                title: selectedTemplate == null
+                    ? null
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            selectedTemplate.icon,
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              selectedTemplate.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.titleSmall?.copyWith(
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                 actions: [
                   TextButton(
                     onPressed: _saveEntry,
@@ -377,25 +460,29 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                                 itemBuilder: (context, i) {
                                   final path = _photoPaths[i];
-                                  return Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          File(path),
-                                          fit: BoxFit.cover,
+                                  return SizedBox(
+                                    width: 72,
+                                    height: 72,
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.file(
+                                            File(path),
+                                            fit: BoxFit.cover,
+                                          ),
                                         ),
-                                      ),
-                                      Positioned(
-                                        top: 4,
-                                        right: 4,
-                                        child: GestureDetector(
-                                          onTap: () => setState(() => _photoPaths.removeAt(i)),
-                                          child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                        Positioned(
+                                          top: 4,
+                                          right: 4,
+                                          child: GestureDetector(
+                                            onTap: () => setState(() => _photoPaths.removeAt(i)),
+                                            child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   );
                                 },
                               ),
@@ -414,9 +501,12 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                             ),
                             AudioRecordButton(
                               onRecordingDone: (path, duration) {
-                                setState(() => _blocks.add(
-                                      AudioBlock(filePath: path, duration: duration),
-                                    ));
+                                setState(() {
+                                  _blocks.add(
+                                    AudioBlock(filePath: path, duration: duration),
+                                  );
+                                  _blocks.add(TextBlock(''));
+                                });
                               },
                             ),
                           ],
