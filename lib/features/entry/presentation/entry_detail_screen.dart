@@ -56,6 +56,36 @@ class _Body extends ConsumerWidget {
   final AppEntry entry;
   final JournalTemplate? template;
 
+  Future<void> _deleteEntry(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Girişi sil'),
+        content: const Text('Bu girişi silmek istediğine emin misin? Bu işlem geri alınamaz.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Sil', style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final db = ref.read(appDatabaseProvider);
+    await (db.delete(db.appEntries)..where((e) => e.id.equals(entry.id))).go();
+    ref.invalidate(entryDetailProvider(entry.id));
+    ref.invalidate(recentEntriesProvider);
+    ref.invalidate(memoryEntriesProvider);
+    ref.invalidate(filteredMemoryEntriesProvider);
+    ref.invalidate(usedTemplatesProvider);
+    ref.invalidate(templateUsageCountProvider);
+    if (context.mounted) context.pop();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final title = template?.name ?? 'Giriş';
@@ -84,27 +114,44 @@ class _Body extends ConsumerWidget {
             onPressed: () => context.pop(),
             icon: const Icon(Icons.arrow_back_rounded),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => context.pushNamed(
+                'entryNew',
+                queryParameters: {'editEntryId': '${entry.id}'},
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded),
+              onPressed: () => _deleteEntry(context, ref),
+            ),
+          ],
           flexibleSpace: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
             child: Align(
               alignment: Alignment.bottomLeft,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(icon, style: const TextStyle(fontSize: 36)),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w300,
-                      color: Colors.white,
-                      fontSize: 28,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.bottomLeft,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(icon, style: const TextStyle(fontSize: 36)),
+                    const SizedBox(height: 4),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w300,
+                        color: Colors.white,
+                        fontSize: 28,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

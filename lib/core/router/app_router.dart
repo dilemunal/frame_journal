@@ -8,6 +8,7 @@ import '../../features/entry/presentation/entry_detail_screen.dart';
 import '../../features/entry/presentation/entry_screen.dart';
 import '../../features/hafiza/presentation/hafiza_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/ritim/presentation/ritim_screen.dart';
 import '../../features/templates/presentation/template_builder_screen.dart';
 import 'main_shell.dart';
@@ -29,11 +30,21 @@ GoRouter appRouter(Ref ref) {
     navigatorKey: _rootNavigatorKey,
     refreshListenable: authListenable,
     initialLocation: '/login',
-    redirect: (context, state) {
+    redirect: (context, state) async {
       final auth = ref.read(authNotifierProvider);
-      final loggingIn = state.matchedLocation == '/login';
-      if (!auth.isAuthenticated) return loggingIn ? null : '/login';
-      if (loggingIn) return '/';
+      final atLogin = state.matchedLocation == '/login';
+      final atOnboarding = state.matchedLocation == '/onboarding';
+      if (!auth.isAuthenticated) {
+        return atLogin ? null : '/login';
+      }
+      if (atLogin) {
+        final done = await ref.read(onboardingCompleteProvider.future);
+        return done ? '/' : '/onboarding';
+      }
+      if (!atOnboarding) {
+        final done = await ref.read(onboardingCompleteProvider.future);
+        if (!done) return '/onboarding';
+      }
       return null;
     },
     routes: <RouteBase>[
@@ -43,13 +54,20 @@ GoRouter appRouter(Ref ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
+        path: '/onboarding',
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
         path: '/entry/new',
         name: 'entryNew',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final templateId = int.tryParse(state.uri.queryParameters['templateId'] ?? '');
+          final editEntryId = int.tryParse(state.uri.queryParameters['editEntryId'] ?? '');
           final child = EntryScreen(
             templateId: (templateId != null && templateId > 0) ? templateId : null,
+            editEntryId: (editEntryId != null && editEntryId > 0) ? editEntryId : null,
           );
           return CustomTransitionPage<void>(
             key: state.pageKey,
@@ -80,14 +98,32 @@ GoRouter appRouter(Ref ref) {
         path: '/entry/:id',
         name: 'entryDetail',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
           if (id == null || id <= 0) {
-            return const Scaffold(
-              body: Center(child: Text('Geçersiz giriş.')),
+            return MaterialPage<void>(
+              key: state.pageKey,
+              child: const Scaffold(
+                body: Center(child: Text('Geçersiz giriş.')),
+              ),
             );
           }
-          return EntryDetailScreen(entryId: id);
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            transitionDuration: const Duration(milliseconds: 150),
+            reverseTransitionDuration: const Duration(milliseconds: 120),
+            child: EntryDetailScreen(entryId: id),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOut,
+                  reverseCurve: Curves.easeIn,
+                ),
+                child: child,
+              );
+            },
+          );
         },
       ),
       StatefulShellRoute.indexedStack(

@@ -83,6 +83,10 @@ class UserSettings extends Table {
   BoolColumn get biometricLockEnabled => boolean()
       .named('biometric_lock_enabled')
       .withDefault(const Constant(false))();
+
+  /// Varsayılan şablon id (Bugünü kaydet ile açılacak). null = serbest.
+  IntColumn get defaultTemplateId =>
+      integer().named('default_template_id').nullable()();
 }
 
 // --- Template system (GÖREV 2) ---
@@ -149,7 +153,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'journal'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -161,6 +165,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 3) {
             await migrator.createTable(rhythmCompletions);
+          }
+          if (from < 4) {
+            await migrator.addColumn(
+                userSettings, userSettings.defaultTemplateId);
           }
         },
       );

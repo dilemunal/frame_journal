@@ -87,6 +87,88 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+Future<void> _showDefaultTemplatePicker(BuildContext context, WidgetRef ref) async {
+  final templates = await ref.read(journalTemplatesProvider.future);
+  final currentId = await ref.read(defaultTemplateIdProvider.future);
+  if (!context.mounted) return;
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      final maxH = MediaQuery.of(ctx).size.height * 0.6;
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            constraints: BoxConstraints(maxHeight: maxH),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 22),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Varsayılan şablon',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('Serbest (metin alanı)', style: TextStyle(color: Colors.white.withValues(alpha: 0.9))),
+                          trailing: currentId == null ? Icon(Icons.check_rounded, color: Colors.white.withValues(alpha: 0.9), size: 22) : null,
+                          onTap: () async {
+                            await ref.read(defaultTemplateNotifierProvider).setDefaultTemplateId(null);
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Varsayılan şablon: Serbest'), behavior: SnackBarBehavior.floating),
+                              );
+                            }
+                          },
+                        ),
+                        ...templates.map((t) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Text(t.icon, style: const TextStyle(fontSize: 20)),
+                          title: Text(t.name, style: TextStyle(color: Colors.white.withValues(alpha: 0.9))),
+                          trailing: currentId == t.id ? Icon(Icons.check_rounded, color: Colors.white.withValues(alpha: 0.9), size: 22) : null,
+                          onTap: () async {
+                            await ref.read(defaultTemplateNotifierProvider).setDefaultTemplateId(t.id);
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Varsayılan şablon: ${t.name}'), behavior: SnackBarBehavior.floating),
+                              );
+                            }
+                          },
+                        )),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _TopBar extends ConsumerWidget {
   const _TopBar({required this.firstName, required this.email});
   final String firstName;
@@ -156,16 +238,29 @@ class _TopBar extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha: 0.6),
-                      foregroundColor: Colors.white,
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.tune_rounded, color: Colors.white.withValues(alpha: 0.8), size: 22),
+                    title: Text(
+                      'Varsayılan Şablon',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15),
                     ),
-                    onPressed: () async {
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      _showDefaultTemplatePicker(context, ref);
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.logout_rounded, color: Colors.red.withValues(alpha: 0.9), size: 22),
+                    title: Text(
+                      'Çıkış Yap',
+                      style: TextStyle(color: Colors.red.withValues(alpha: 0.9), fontSize: 15),
+                    ),
+                    onTap: () async {
                       await ref.read(authNotifierProvider.notifier).logout();
                       if (ctx.mounted) Navigator.of(ctx).pop();
                     },
-                    child: const Text('Çıkış Yap'),
                   ),
                 ],
               ),
@@ -236,9 +331,7 @@ class _BottomPanel extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _QuickEntryButton(
-                onTap: () => context.pushNamed('entryNew'),
-              ),
+              _QuickEntryButton(),
               const SizedBox(height: 16),
               const _TemplateSection(),
               const SizedBox(height: 14),
@@ -254,14 +347,36 @@ class _BottomPanel extends ConsumerWidget {
   }
 }
 
-class _QuickEntryButton extends StatelessWidget {
-  const _QuickEntryButton({required this.onTap});
-  final VoidCallback onTap;
+class _QuickEntryButton extends ConsumerWidget {
+  const _QuickEntryButton();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final defaultIdAsync = ref.watch(defaultTemplateIdProvider);
+    final templatesAsync = ref.watch(journalTemplatesProvider);
+    String? defaultLabel;
+    final defaultId = defaultIdAsync.valueOrNull;
+    if (defaultId != null && defaultId > 0) {
+      final list = templatesAsync.valueOrNull ?? [];
+      for (final t in list) {
+        if (t.id == defaultId) {
+          defaultLabel = '${t.icon} ${t.name}';
+          break;
+        }
+      }
+    }
+
     return InkWell(
-      onTap: onTap,
+      onTap: () async {
+        final id = await ref.read(defaultTemplateIdProvider.future);
+        if (context.mounted) {
+          if (id != null && id > 0) {
+            context.pushNamed('entryNew', queryParameters: {'templateId': '$id'});
+          } else {
+            context.pushNamed('entryNew');
+          }
+        }
+      },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -273,12 +388,30 @@ class _QuickEntryButton extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                'Bugünü kaydet',
-                style: TextStyle(
-                  color: AppColors.textOnGlassPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bugünü kaydet',
+                    style: TextStyle(
+                      color: AppColors.textOnGlassPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (defaultLabel != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      defaultLabel,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
               ),
             ),
             Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.9)),
@@ -295,6 +428,8 @@ class _TemplateSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(journalTemplatesProvider);
+    final usageAsync = ref.watch(templateUsageCountProvider);
+    final usage = usageAsync.valueOrNull ?? <int, int>{};
     return async.when(
       loading: () => const SizedBox.shrink(),
       error: (e, s) => const SizedBox.shrink(),
@@ -316,6 +451,7 @@ class _TemplateSection extends ConsumerWidget {
               child: Row(
                 children: [
                   ...list.map((t) {
+                    final count = usage[t.id] ?? 0;
                     return Padding(
                       padding: const EdgeInsets.only(right: 10),
                       child: InkWell(
@@ -328,24 +464,50 @@ class _TemplateSection extends ConsumerWidget {
                         child: Container(
                           width: 88,
                           height: 80,
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.13),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                           ),
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(t.icon, style: const TextStyle(fontSize: 24)),
-                              const SizedBox(height: 6),
-                              Text(
-                                t.name,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  fontSize: 12,
+                              Text(t.icon, style: const TextStyle(fontSize: 22)),
+                              const SizedBox(height: 4),
+                              Expanded(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.center,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        t.name,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.7),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                      if (count > 0) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '$count giriş',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.35),
+                                            fontSize: 9,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],

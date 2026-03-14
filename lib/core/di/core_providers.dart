@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' show OrderingTerm;
+import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/token_storage.dart';
@@ -30,6 +30,21 @@ final FutureProvider<List<JournalTemplate>> journalTemplatesProvider =
       await seedDefaultTemplates(db);
       return db.select(db.journalTemplates).get();
     });
+
+/// Şablon bazlı entry sayısı. templateId -> count. Sadece templateId dolu entry'ler.
+final FutureProvider<Map<int, int>> templateUsageCountProvider =
+    FutureProvider<Map<int, int>>((ref) async {
+  final db = ref.read(appDatabaseProvider);
+  final entries = await db.select(db.appEntries).get();
+  final map = <int, int>{};
+  for (final e in entries) {
+    final id = e.templateId;
+    if (id != null) {
+      map[id] = (map[id] ?? 0) + 1;
+    }
+  }
+  return map;
+});
 
 /// Belirli şablonun alanları (sortOrder'a göre).
 final templateFieldsProvider =
@@ -97,6 +112,108 @@ final FutureProvider<List<(AppEntry, JournalTemplate?)>> memoryEntriesProvider =
           )
           .toList();
     });
+
+/// Filtrelenebilir hafıza: (filterId, limit). templateId null = tümü, -1 = serbest, >0 = şablon.
+final filteredMemoryEntriesProvider =
+    FutureProvider.family<List<(AppEntry, JournalTemplate?)>, (int?, int)>((ref, params) async {
+      final filterId = params.$1;
+      final limit = params.$2;
+      final db = ref.read(appDatabaseProvider);
+      final cap = limit > 500 ? 500 : limit;
+      final entries = await (db.select(db.appEntries)
+            ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
+            ..limit(cap))
+          .get();
+      List<AppEntry> filtered;
+      if (filterId == null) {
+        filtered = entries;
+      } else if (filterId == -1) {
+        filtered = entries.where((e) => e.templateId == null).toList();
+      } else {
+        filtered = entries.where((e) => e.templateId == filterId).toList();
+      }
+      if (filtered.length > limit) {
+        filtered = filtered.sublist(0, limit);
+      }
+      if (filtered.isEmpty) return [];
+      final templateIds = filtered
+          .map((e) => e.templateId)
+          .whereType<int>()
+          .toSet();
+      final templates = templateIds.isEmpty
+          ? <JournalTemplate>[]
+          : await (db.select(db.journalTemplates)
+                ..where((t) => t.id.isIn(templateIds)))
+              .get();
+      final templateMap = {for (var t in templates) t.id: t};
+      return filtered
+          .map(
+            (e) => (e, e.templateId != null ? templateMap[e.templateId] : null),
+          )
+          .toList();
+    });
+
+/// Entry'si olan şablonlar + Serbest. Chip listesi için. filterId: null = Serbest, >0 = templateId.
+class UsedTemplateChip {
+  const UsedTemplateChip({required this.filterId, required this.label, this.icon});
+  final int? filterId; // -1 = Serbest, 1,2,3 = template id
+  final String label;
+  final String? icon;
+}
+
+final FutureProvider<List<UsedTemplateChip>> usedTemplatesProvider =
+    FutureProvider<List<UsedTemplateChip>>((ref) async {
+      final db = ref.read(appDatabaseProvider);
+      final entries = await (db.select(db.appEntries)).get();
+      final hasFree = entries.any((e) => e.templateId == null);
+      final templateIds = entries.map((e) => e.templateId).whereType<int>().toSet();
+      final chips = <UsedTemplateChip>[];
+      if (hasFree) {
+        chips.add(const UsedTemplateChip(filterId: -1, label: 'Serbest', icon: null));
+      }
+      if (templateIds.isNotEmpty) {
+        final templates = await (db.select(db.journalTemplates)
+              ..where((t) => t.id.isIn(templateIds)))
+            .get();
+        for (final t in templates) {
+          chips.add(UsedTemplateChip(filterId: t.id, label: t.name, icon: t.icon));
+        }
+        chips.sort((a, b) => (a.label).compareTo(b.label));
+      }
+      return chips;
+    });
+
+/// Varsayılan şablon id (Bugünü kaydet). null = serbest.
+final FutureProvider<int?> defaultTemplateIdProvider =
+    FutureProvider<int?>((ref) async {
+  final db = ref.read(appDatabaseProvider);
+  final rows = await (db.select(db.userSettings)..limit(1)).get();
+  return rows.isEmpty ? null : rows.single.defaultTemplateId;
+});
+
+/// Varsayılan şablon güncelleme.
+final Provider<DefaultTemplateNotifier> defaultTemplateNotifierProvider =
+    Provider<DefaultTemplateNotifier>((ref) => DefaultTemplateNotifier(ref));
+
+class DefaultTemplateNotifier {
+  DefaultTemplateNotifier(this._ref);
+  final Ref _ref;
+
+  Future<void> setDefaultTemplateId(int? templateId) async {
+    final db = _ref.read(appDatabaseProvider);
+    final rows = await (db.select(db.userSettings)..limit(1)).get();
+    if (rows.isEmpty) {
+      await db.into(db.userSettings).insert(
+            UserSettingsCompanion.insert(defaultTemplateId: Value(templateId)),
+          );
+    } else {
+      await (db.update(db.userSettings)
+            ..where((r) => r.id.equals(rows.single.id)))
+          .write(UserSettingsCompanion(defaultTemplateId: Value(templateId)));
+    }
+    _ref.invalidate(defaultTemplateIdProvider);
+  }
+}
 
 /// Tek giriş detayı (id ile). Giriş bulunamazsa null döner.
 final entryDetailProvider =

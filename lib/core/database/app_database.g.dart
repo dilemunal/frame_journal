@@ -1449,6 +1449,17 @@ class $UserSettingsTable extends UserSettings
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _defaultTemplateIdMeta = const VerificationMeta(
+    'defaultTemplateId',
+  );
+  @override
+  late final GeneratedColumn<int> defaultTemplateId = GeneratedColumn<int>(
+    'default_template_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1456,6 +1467,7 @@ class $UserSettingsTable extends UserSettings
     dailyWaterTargetMl,
     autoLockMinutes,
     biometricLockEnabled,
+    defaultTemplateId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1505,6 +1517,15 @@ class $UserSettingsTable extends UserSettings
         ),
       );
     }
+    if (data.containsKey('default_template_id')) {
+      context.handle(
+        _defaultTemplateIdMeta,
+        defaultTemplateId.isAcceptableOrUnknown(
+          data['default_template_id']!,
+          _defaultTemplateIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1534,6 +1555,10 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.bool,
         data['${effectivePrefix}biometric_lock_enabled'],
       )!,
+      defaultTemplateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}default_template_id'],
+      ),
     );
   }
 
@@ -1557,12 +1582,16 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
 
   /// Whether biometric lock is enabled.
   final bool biometricLockEnabled;
+
+  /// Varsayılan şablon id (Bugünü kaydet ile açılacak). null = serbest.
+  final int? defaultTemplateId;
   const UserSetting({
     required this.id,
     required this.theme,
     required this.dailyWaterTargetMl,
     required this.autoLockMinutes,
     required this.biometricLockEnabled,
+    this.defaultTemplateId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1572,6 +1601,9 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
     map['daily_water_target_ml'] = Variable<int>(dailyWaterTargetMl);
     map['auto_lock_minutes'] = Variable<int>(autoLockMinutes);
     map['biometric_lock_enabled'] = Variable<bool>(biometricLockEnabled);
+    if (!nullToAbsent || defaultTemplateId != null) {
+      map['default_template_id'] = Variable<int>(defaultTemplateId);
+    }
     return map;
   }
 
@@ -1582,6 +1614,9 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       dailyWaterTargetMl: Value(dailyWaterTargetMl),
       autoLockMinutes: Value(autoLockMinutes),
       biometricLockEnabled: Value(biometricLockEnabled),
+      defaultTemplateId: defaultTemplateId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultTemplateId),
     );
   }
 
@@ -1598,6 +1633,7 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       biometricLockEnabled: serializer.fromJson<bool>(
         json['biometricLockEnabled'],
       ),
+      defaultTemplateId: serializer.fromJson<int?>(json['defaultTemplateId']),
     );
   }
   @override
@@ -1609,6 +1645,7 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       'dailyWaterTargetMl': serializer.toJson<int>(dailyWaterTargetMl),
       'autoLockMinutes': serializer.toJson<int>(autoLockMinutes),
       'biometricLockEnabled': serializer.toJson<bool>(biometricLockEnabled),
+      'defaultTemplateId': serializer.toJson<int?>(defaultTemplateId),
     };
   }
 
@@ -1618,12 +1655,16 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
     int? dailyWaterTargetMl,
     int? autoLockMinutes,
     bool? biometricLockEnabled,
+    Value<int?> defaultTemplateId = const Value.absent(),
   }) => UserSetting(
     id: id ?? this.id,
     theme: theme ?? this.theme,
     dailyWaterTargetMl: dailyWaterTargetMl ?? this.dailyWaterTargetMl,
     autoLockMinutes: autoLockMinutes ?? this.autoLockMinutes,
     biometricLockEnabled: biometricLockEnabled ?? this.biometricLockEnabled,
+    defaultTemplateId: defaultTemplateId.present
+        ? defaultTemplateId.value
+        : this.defaultTemplateId,
   );
   UserSetting copyWithCompanion(UserSettingsCompanion data) {
     return UserSetting(
@@ -1638,6 +1679,9 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       biometricLockEnabled: data.biometricLockEnabled.present
           ? data.biometricLockEnabled.value
           : this.biometricLockEnabled,
+      defaultTemplateId: data.defaultTemplateId.present
+          ? data.defaultTemplateId.value
+          : this.defaultTemplateId,
     );
   }
 
@@ -1648,7 +1692,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           ..write('theme: $theme, ')
           ..write('dailyWaterTargetMl: $dailyWaterTargetMl, ')
           ..write('autoLockMinutes: $autoLockMinutes, ')
-          ..write('biometricLockEnabled: $biometricLockEnabled')
+          ..write('biometricLockEnabled: $biometricLockEnabled, ')
+          ..write('defaultTemplateId: $defaultTemplateId')
           ..write(')'))
         .toString();
   }
@@ -1660,6 +1705,7 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
     dailyWaterTargetMl,
     autoLockMinutes,
     biometricLockEnabled,
+    defaultTemplateId,
   );
   @override
   bool operator ==(Object other) =>
@@ -1669,7 +1715,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           other.theme == this.theme &&
           other.dailyWaterTargetMl == this.dailyWaterTargetMl &&
           other.autoLockMinutes == this.autoLockMinutes &&
-          other.biometricLockEnabled == this.biometricLockEnabled);
+          other.biometricLockEnabled == this.biometricLockEnabled &&
+          other.defaultTemplateId == this.defaultTemplateId);
 }
 
 class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
@@ -1678,12 +1725,14 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
   final Value<int> dailyWaterTargetMl;
   final Value<int> autoLockMinutes;
   final Value<bool> biometricLockEnabled;
+  final Value<int?> defaultTemplateId;
   const UserSettingsCompanion({
     this.id = const Value.absent(),
     this.theme = const Value.absent(),
     this.dailyWaterTargetMl = const Value.absent(),
     this.autoLockMinutes = const Value.absent(),
     this.biometricLockEnabled = const Value.absent(),
+    this.defaultTemplateId = const Value.absent(),
   });
   UserSettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -1691,6 +1740,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     this.dailyWaterTargetMl = const Value.absent(),
     this.autoLockMinutes = const Value.absent(),
     this.biometricLockEnabled = const Value.absent(),
+    this.defaultTemplateId = const Value.absent(),
   });
   static Insertable<UserSetting> custom({
     Expression<int>? id,
@@ -1698,6 +1748,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     Expression<int>? dailyWaterTargetMl,
     Expression<int>? autoLockMinutes,
     Expression<bool>? biometricLockEnabled,
+    Expression<int>? defaultTemplateId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1707,6 +1758,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
       if (autoLockMinutes != null) 'auto_lock_minutes': autoLockMinutes,
       if (biometricLockEnabled != null)
         'biometric_lock_enabled': biometricLockEnabled,
+      if (defaultTemplateId != null) 'default_template_id': defaultTemplateId,
     });
   }
 
@@ -1716,6 +1768,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     Value<int>? dailyWaterTargetMl,
     Value<int>? autoLockMinutes,
     Value<bool>? biometricLockEnabled,
+    Value<int?>? defaultTemplateId,
   }) {
     return UserSettingsCompanion(
       id: id ?? this.id,
@@ -1723,6 +1776,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
       dailyWaterTargetMl: dailyWaterTargetMl ?? this.dailyWaterTargetMl,
       autoLockMinutes: autoLockMinutes ?? this.autoLockMinutes,
       biometricLockEnabled: biometricLockEnabled ?? this.biometricLockEnabled,
+      defaultTemplateId: defaultTemplateId ?? this.defaultTemplateId,
     );
   }
 
@@ -1746,6 +1800,9 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
         biometricLockEnabled.value,
       );
     }
+    if (defaultTemplateId.present) {
+      map['default_template_id'] = Variable<int>(defaultTemplateId.value);
+    }
     return map;
   }
 
@@ -1756,7 +1813,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
           ..write('theme: $theme, ')
           ..write('dailyWaterTargetMl: $dailyWaterTargetMl, ')
           ..write('autoLockMinutes: $autoLockMinutes, ')
-          ..write('biometricLockEnabled: $biometricLockEnabled')
+          ..write('biometricLockEnabled: $biometricLockEnabled, ')
+          ..write('defaultTemplateId: $defaultTemplateId')
           ..write(')'))
         .toString();
   }
@@ -5065,6 +5123,7 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<int> dailyWaterTargetMl,
       Value<int> autoLockMinutes,
       Value<bool> biometricLockEnabled,
+      Value<int?> defaultTemplateId,
     });
 typedef $$UserSettingsTableUpdateCompanionBuilder =
     UserSettingsCompanion Function({
@@ -5073,6 +5132,7 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<int> dailyWaterTargetMl,
       Value<int> autoLockMinutes,
       Value<bool> biometricLockEnabled,
+      Value<int?> defaultTemplateId,
     });
 
 class $$UserSettingsTableFilterComposer
@@ -5106,6 +5166,11 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<bool> get biometricLockEnabled => $composableBuilder(
     column: $table.biometricLockEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get defaultTemplateId => $composableBuilder(
+    column: $table.defaultTemplateId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5143,6 +5208,11 @@ class $$UserSettingsTableOrderingComposer
     column: $table.biometricLockEnabled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get defaultTemplateId => $composableBuilder(
+    column: $table.defaultTemplateId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserSettingsTableAnnotationComposer
@@ -5172,6 +5242,11 @@ class $$UserSettingsTableAnnotationComposer
 
   GeneratedColumn<bool> get biometricLockEnabled => $composableBuilder(
     column: $table.biometricLockEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get defaultTemplateId => $composableBuilder(
+    column: $table.defaultTemplateId,
     builder: (column) => column,
   );
 }
@@ -5212,12 +5287,14 @@ class $$UserSettingsTableTableManager
                 Value<int> dailyWaterTargetMl = const Value.absent(),
                 Value<int> autoLockMinutes = const Value.absent(),
                 Value<bool> biometricLockEnabled = const Value.absent(),
+                Value<int?> defaultTemplateId = const Value.absent(),
               }) => UserSettingsCompanion(
                 id: id,
                 theme: theme,
                 dailyWaterTargetMl: dailyWaterTargetMl,
                 autoLockMinutes: autoLockMinutes,
                 biometricLockEnabled: biometricLockEnabled,
+                defaultTemplateId: defaultTemplateId,
               ),
           createCompanionCallback:
               ({
@@ -5226,12 +5303,14 @@ class $$UserSettingsTableTableManager
                 Value<int> dailyWaterTargetMl = const Value.absent(),
                 Value<int> autoLockMinutes = const Value.absent(),
                 Value<bool> biometricLockEnabled = const Value.absent(),
+                Value<int?> defaultTemplateId = const Value.absent(),
               }) => UserSettingsCompanion.insert(
                 id: id,
                 theme: theme,
                 dailyWaterTargetMl: dailyWaterTargetMl,
                 autoLockMinutes: autoLockMinutes,
                 biometricLockEnabled: biometricLockEnabled,
+                defaultTemplateId: defaultTemplateId,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

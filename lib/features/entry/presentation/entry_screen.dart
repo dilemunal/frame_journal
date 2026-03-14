@@ -33,11 +33,12 @@ class _PromptEntry {
   final TextEditingController controller;
 }
 
-/// Yeni giriş ekranı. Route: /entry/new
+/// Yeni giriş ekranı. Route: /entry/new. editEntryId varsa düzenleme modu.
 class EntryScreen extends ConsumerStatefulWidget {
-  const EntryScreen({super.key, this.templateId});
+  const EntryScreen({super.key, this.templateId, this.editEntryId});
 
   final int? templateId;
+  final int? editEntryId;
 
   @override
   ConsumerState<EntryScreen> createState() => _EntryScreenState();
@@ -55,13 +56,54 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   int _templateValidateSignal = 0;
   String _templateNotes = '';
   Timer? _draftTimer;
+  int? _editTemplateId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _textController.addListener(_onTextChanged);
-    _loadDraft();
+    if (widget.editEntryId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadEntryForEdit());
+    } else {
+      _loadDraft();
+    }
+  }
+
+  Future<void> _loadEntryForEdit() async {
+    final id = widget.editEntryId!;
+    final pair = await ref.read(entryDetailProvider(id).future);
+    if (pair == null || !mounted) return;
+    final entry = pair.$1;
+    setState(() {
+      _editTemplateId = entry.templateId;
+      _textController.text = entry.freeText ?? '';
+      _moodValue = _moodFromEmoji(entry.mood);
+      if (entry.valuesJson != null && entry.valuesJson!.isNotEmpty) {
+        try {
+          final root = jsonDecode(entry.valuesJson!) as Map<String, dynamic>?;
+          final templateValues = root?['templateValues'] as Map<String, dynamic>?;
+          if (templateValues != null) {
+            for (final e in templateValues.entries) {
+              final k = int.tryParse(e.key);
+              if (k != null) _templateValues[k] = e.value;
+            }
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  static double _moodFromEmoji(String? emoji) {
+    if (emoji == null || emoji.isEmpty) return 0.5;
+    switch (emoji) {
+      case '😴': return 0.1;
+      case '😔': return 0.3;
+      case '😌': return 0.5;
+      case '😊': return 0.7;
+      case '🔥': return 0.95;
+      default: return 0.5;
+    }
   }
 
   @override
@@ -289,6 +331,43 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
           })
         : null;
 
+    if (widget.editEntryId != null) {
+      try {
+        await (db.update(db.appEntries)
+              ..where((e) => e.id.equals(widget.editEntryId!)))
+            .write(
+              AppEntriesCompanion(
+                freeText: Value(content),
+                mood: Value(moodEmojiStr),
+                valuesJson: valuesJsonStr != null
+                    ? Value(valuesJsonStr)
+                    : const Value.absent(),
+                weatherJson: weatherJson != null
+                    ? Value(weatherJson)
+                    : const Value.absent(),
+                locationJson: locationJson != null
+                    ? Value(locationJson)
+                    : const Value.absent(),
+              ),
+            );
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Güncellenemedi, tekrar dene.')),
+          );
+        }
+        return;
+      }
+      ref.invalidate(entryDetailProvider(widget.editEntryId!));
+      ref.invalidate(recentEntriesProvider);
+      ref.invalidate(memoryEntriesProvider);
+      ref.invalidate(filteredMemoryEntriesProvider);
+      ref.invalidate(usedTemplatesProvider);
+      ref.invalidate(templateUsageCountProvider);
+      if (mounted) context.pop();
+      return;
+    }
+
     final createdAt = DateTime.now();
     try {
       await db.into(db.appEntries).insert(
@@ -328,6 +407,9 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     ref.invalidate(hourDistributionProvider);
     ref.invalidate(thisWeekEntriesProvider);
     ref.invalidate(pastYearsTodayEntriesProvider);
+    ref.invalidate(filteredMemoryEntriesProvider);
+    ref.invalidate(usedTemplatesProvider);
+    ref.invalidate(templateUsageCountProvider);
     await _clearDraft();
     if (mounted) context.pop();
   }
@@ -368,11 +450,12 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   @override
   Widget build(BuildContext context) {
     final templatesAsync = ref.watch(journalTemplatesProvider);
+    final effectiveTemplateId = widget.editEntryId != null ? _editTemplateId : widget.templateId;
     JournalTemplate? selectedTemplate;
     templatesAsync.whenData((list) {
-      if (widget.templateId == null) return;
+      if (effectiveTemplateId == null) return;
       for (final t in list) {
-        if (t.id == widget.templateId) {
+        if (t.id == effectiveTemplateId) {
           selectedTemplate = t;
           break;
         }
@@ -410,21 +493,23 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: _handleBack,
             ),
-            title: selectedTemplate == null
-                ? null
-                : Row(
-                    children: [
-                      Text(selectedTemplate!.icon),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          selectedTemplate!.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
+            title: widget.editEntryId != null
+                ? const Text('Düzenle')
+                : (selectedTemplate == null
+                    ? null
+                    : Row(
+                        children: [
+                          Text(selectedTemplate!.icon),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              selectedTemplate!.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      )),
             actions: [
               IconButton(
                 tooltip: _isFocusMode ? 'Odaktan cik' : 'Odak modu',
