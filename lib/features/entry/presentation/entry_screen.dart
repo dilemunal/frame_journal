@@ -24,6 +24,7 @@ import 'widgets/glass_card.dart';
 import 'widgets/keyboard_toolbar.dart';
 import 'widgets/mood_bar.dart' show MoodBar, moodEmoji;
 import 'widgets/recording_overlay.dart';
+import 'widgets/template_form.dart';
 
 class _PromptEntry {
   _PromptEntry(this.question) : controller = TextEditingController();
@@ -46,8 +47,12 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   final _textController = TextEditingController();
   final List<EntryBlock> _blocks = [];
   final List<_PromptEntry> _prompts = [];
+  final Map<int, dynamic> _templateValues = {};
   double _moodValue = 0.5;
   bool _isFocusMode = false;
+  bool _templateRequiredComplete = true;
+  int _templateValidateSignal = 0;
+  String _templateNotes = '';
   Timer? _draftTimer;
 
   @override
@@ -204,12 +209,21 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   }
 
   Future<void> _saveEntry() async {
+    if (widget.templateId != null && !_templateRequiredComplete) {
+      setState(() => _templateValidateSignal++);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Zorunlu alanlari doldurman gerekiyor.')),
+      );
+      return;
+    }
+
     final text = _freeText;
     final promptAnswers = _prompts
         .where((p) => p.controller.text.trim().isNotEmpty)
         .map((p) => '**${p.question}**\n${p.controller.text.trim()}')
         .join('\n\n');
     final fullText = [
+      if (_templateNotes.trim().isNotEmpty) _templateNotes.trim(),
       if (text.isNotEmpty) text,
       if (promptAnswers.isNotEmpty) promptAnswers,
     ].join('\n\n---\n\n');
@@ -217,12 +231,17 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     final content = fullText.trim();
     final mediaBlocks = _blocks.where((b) => b is! TextBlock).toList();
     final imagePaths = mediaBlocks.whereType<ImageBlock>().map((e) => e.filePath).toList();
+    final templatePhotoPaths = _extractTemplatePhotoPaths(_templateValues);
     final audioItems = mediaBlocks
         .whereType<AudioBlock>()
         .map((e) => {'path': e.filePath, 'durationSec': e.duration.inSeconds})
         .toList();
 
-    final hasAnyContent = content.isNotEmpty || imagePaths.isNotEmpty || audioItems.isNotEmpty;
+    final hasAnyContent = content.isNotEmpty ||
+        imagePaths.isNotEmpty ||
+        templatePhotoPaths.isNotEmpty ||
+        audioItems.isNotEmpty ||
+        _templateValues.isNotEmpty;
     if (!hasAnyContent) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -254,9 +273,17 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     }
 
     final moodEmojiStr = moodEmoji(_moodValue);
-    final valuesJsonStr = (imagePaths.isNotEmpty || audioItems.isNotEmpty)
+    final templateValuesJsonSafe = _templateValues.map(
+      (key, value) => MapEntry('$key', value),
+    );
+    final valuesJsonStr = (_templateValues.isNotEmpty ||
+            imagePaths.isNotEmpty ||
+            templatePhotoPaths.isNotEmpty ||
+            audioItems.isNotEmpty)
         ? jsonEncode({
+            if (_templateValues.isNotEmpty) 'templateValues': templateValuesJsonSafe,
             if (imagePaths.isNotEmpty) 'photos': imagePaths,
+            if (templatePhotoPaths.isNotEmpty) 'templatePhotos': templatePhotoPaths,
             if (audioItems.isNotEmpty) 'audios': audioItems,
           })
         : null;
@@ -448,6 +475,24 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                           ),
                         ),
                       ),
+                      if (widget.templateId != null) ...[
+                        const SizedBox(height: 10),
+                        TemplateForm(
+                          templateId: widget.templateId!,
+                          validateSignal: _templateValidateSignal,
+                          onValuesChanged: (values) {
+                            _templateValues
+                              ..clear()
+                              ..addAll(values);
+                          },
+                          onRequiredStateChanged: (ok) {
+                            _templateRequiredComplete = ok;
+                          },
+                          onNotesChanged: (note) {
+                            _templateNotes = note;
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       ..._prompts.map((p) {
                         return Padding(
@@ -664,6 +709,21 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
         ),
       ),
     );
+  }
+
+  List<String> _extractTemplatePhotoPaths(Map<int, dynamic> values) {
+    final out = <String>[];
+    for (final v in values.values) {
+      if (v is List) {
+        out.addAll(v.map((e) => '$e'));
+      } else if (v is String && v.startsWith('[')) {
+        try {
+          final decoded = jsonDecode(v);
+          if (decoded is List) out.addAll(decoded.map((e) => '$e'));
+        } catch (_) {}
+      }
+    }
+    return out;
   }
 
   Future<void> _confirmDeleteAudio(int index, AudioBlock block) async {

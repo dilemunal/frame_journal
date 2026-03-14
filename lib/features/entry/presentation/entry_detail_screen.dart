@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -49,20 +50,26 @@ class EntryDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Body extends StatelessWidget {
+class _Body extends ConsumerWidget {
   const _Body({required this.entry, required this.template});
 
   final AppEntry entry;
   final JournalTemplate? template;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final title = template?.name ?? 'Giriş';
     final icon = template?.icon ?? '📝';
     final body = entry.freeText ?? entry.title ?? '—';
     final date = _date(entry.createdAt);
     final loc = _decode(entry.locationJson);
     final weather = _decode(entry.weatherJson);
+    final valuesRoot = _decode(entry.valuesJson);
+    final templateValues = _decodeAnyMap(valuesRoot['templateValues']);
+    final templatePhotos = _decodeAnyList(valuesRoot['templatePhotos']);
+    final fieldsAsync = template == null
+        ? const AsyncValue<List<TemplateField>>.data(<TemplateField>[])
+        : ref.watch(templateFieldsProvider(template!.id));
 
     return CustomScrollView(
       slivers: [
@@ -141,12 +148,210 @@ class _Body extends StatelessWidget {
                     .animate()
                     .fadeIn(delay: 150.ms, duration: 320.ms)
                     .slideY(begin: 0.08, end: 0, delay: 150.ms, duration: 320.ms),
+                fieldsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (error, stackTrace) => const SizedBox.shrink(),
+                  data: (fields) {
+                    final visible = fields
+                        .where((f) => _hasFieldValue(templateValues['${f.id}']))
+                        .toList();
+                    if (visible.isEmpty && templatePhotos.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ...visible.map(
+                            (f) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _fieldView(
+                                f,
+                                templateValues['${f.id}'],
+                              ),
+                            ),
+                          ),
+                          if (templatePhotos.isNotEmpty)
+                            GlassCard(
+                              borderRadius: 16,
+                              opacity: 0.1,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Fotoğraflar',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.72),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  GridView.builder(
+                                    itemCount: templatePhotos.length,
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 8,
+                                    ),
+                                    itemBuilder: (context, index) {
+                                      final path = templatePhotos[index];
+                                      return ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Image.file(
+                                          File(path),
+                                          fit: BoxFit.cover,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
         ),
       ],
     );
+  }
+
+  Widget _fieldView(TemplateField field, dynamic value) {
+    final label = field.label;
+    switch (field.fieldType) {
+      case 'number':
+        return GlassCard(
+          borderRadius: 16,
+          opacity: 0.1,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$value',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                _unitFor(field),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+              ),
+            ],
+          ),
+        );
+      case 'slider':
+        final range = _sliderRange(field.options);
+        final number = value is num
+            ? value.toDouble()
+            : double.tryParse('$value'.replaceAll(',', '.')) ?? range.$1;
+        final t = ((number - range.$1) / (range.$2 - range.$1)).clamp(0.0, 1.0);
+        return GlassCard(
+          borderRadius: 16,
+          opacity: 0.1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(
+                value: t,
+                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9CD3FF)),
+              ),
+              const SizedBox(height: 6),
+              Text('$number', style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+        );
+      case 'select':
+      case 'tags':
+        final chips = value is List ? value : [value];
+        return GlassCard(
+          borderRadius: 16,
+          opacity: 0.1,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: chips
+                .map(
+                  (c) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text('$c', style: const TextStyle(color: Colors.white)),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      case 'location':
+        final map = _decodeAnyMap(value);
+        return GlassCard(
+          borderRadius: 16,
+          opacity: 0.1,
+          child: Text(
+            '📍 ${map['name'] ?? value}',
+            style: const TextStyle(color: Colors.white),
+          ),
+        );
+      case 'weather':
+        final map = _decodeAnyMap(value);
+        return GlassCard(
+          borderRadius: 16,
+          opacity: 0.1,
+          child: Text(
+            '${map['emoji'] ?? '🌤️'} ${map['temp'] ?? ''}°C ${map['condition'] ?? ''}',
+            style: const TextStyle(color: Colors.white),
+          ),
+        );
+      case 'photo':
+        final photos = _decodeAnyList(value);
+        if (photos.isEmpty) return const SizedBox.shrink();
+        return GlassCard(
+          borderRadius: 16,
+          opacity: 0.1,
+          child: GridView.builder(
+            itemCount: photos.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemBuilder: (context, index) => ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(File(photos[index]), fit: BoxFit.cover),
+            ),
+          ),
+        );
+      default:
+        return GlassCard(
+          borderRadius: 16,
+          opacity: 0.1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+              const SizedBox(height: 4),
+              Text('$value', style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+        );
+    }
   }
 
   Widget _metaPill(String text) {
@@ -199,6 +404,65 @@ class _Body extends StatelessWidget {
     } catch (_) {
       return {};
     }
+  }
+
+  static bool _hasFieldValue(dynamic value) {
+    if (value == null) return false;
+    if (value is String) return value.trim().isNotEmpty;
+    if (value is List) return value.isNotEmpty;
+    if (value is num) return true;
+    if (value is Map) return value.isNotEmpty;
+    return false;
+  }
+
+  static Map<String, dynamic> _decodeAnyMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is String && raw.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) return decoded;
+      } catch (_) {}
+    }
+    return {};
+  }
+
+  static List<String> _decodeAnyList(dynamic raw) {
+    if (raw is List) return raw.map((e) => '$e').toList();
+    if (raw is String && raw.startsWith('[')) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) return decoded.map((e) => '$e').toList();
+      } catch (_) {}
+    }
+    return const [];
+  }
+
+  static (double, double) _sliderRange(String? raw) {
+    if (raw == null || raw.isEmpty) return (0, 10);
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        final min = (decoded['min'] as num?)?.toDouble();
+        final max = (decoded['max'] as num?)?.toDouble();
+        if (min != null && max != null && max > min) {
+          return (min, max);
+        }
+      }
+    } catch (_) {}
+    return (0, 10);
+  }
+
+  static String _unitFor(TemplateField field) {
+    if (field.unit != null && field.unit!.isNotEmpty) return field.unit!;
+    if (field.options != null) {
+      try {
+        final decoded = jsonDecode(field.options!);
+        if (decoded is Map<String, dynamic> && decoded['unit'] != null) {
+          return '${decoded['unit']}';
+        }
+      } catch (_) {}
+    }
+    return '';
   }
 }
 

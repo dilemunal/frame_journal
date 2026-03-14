@@ -31,6 +31,16 @@ final FutureProvider<List<JournalTemplate>> journalTemplatesProvider =
       return db.select(db.journalTemplates).get();
     });
 
+/// Belirli şablonun alanları (sortOrder'a göre).
+final templateFieldsProvider =
+    FutureProvider.autoDispose.family<List<TemplateField>, int>((ref, templateId) async {
+  final db = ref.read(appDatabaseProvider);
+  return (db.select(db.templateFields)
+        ..where((f) => f.templateId.equals(templateId))
+        ..orderBy([(f) => OrderingTerm.asc(f.sortOrder)]))
+      .get();
+});
+
 /// Yerel kullanıcı id (auth backend'den gelene kadar sabit).
 const int kLocalUserId = 1;
 

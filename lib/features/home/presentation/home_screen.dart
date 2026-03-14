@@ -314,47 +314,202 @@ class _TemplateSection extends ConsumerWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: list.map((t) {
-                  return Padding(
+                children: [
+                  ...list.map((t) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: InkWell(
+                        onTap: () => context.pushNamed(
+                          'entryNew',
+                          queryParameters: {'templateId': '${t.id}'},
+                        ),
+                        onLongPress: () => _showTemplatePreview(context, t.id, t),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: 88,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.13),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(t.icon, style: const TextStyle(fontSize: 24)),
+                              const SizedBox(height: 6),
+                              Text(
+                                t.name,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  Padding(
                     padding: const EdgeInsets.only(right: 10),
                     child: InkWell(
-                      onTap: () => context.pushNamed(
-                        'entryNew',
-                        queryParameters: {'templateId': '${t.id}'},
-                      ),
+                      onTap: () => context.pushNamed('templateBuilder'),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         width: 88,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.13),
+                          color: Colors.white.withValues(alpha: 0.11),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(t.icon, style: const TextStyle(fontSize: 24)),
+                            Icon(
+                              Icons.add_rounded,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              size: 24,
+                            ),
                             const SizedBox(height: 6),
                             Text(
-                              t.name,
+                              'Şablon ekle',
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: Colors.white.withValues(alpha: 0.78),
                                 fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ],
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showTemplatePreview(
+    BuildContext context,
+    int templateId,
+    JournalTemplate template,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final asyncFields = ref.watch(templateFieldsProvider(templateId));
+            return ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(template.icon, style: const TextStyle(fontSize: 32)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              template.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      asyncFields.when(
+                        loading: () => Text(
+                          'Yukleniyor...',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                        ),
+                        error: (error, stackTrace) => Text(
+                          'Alanlar yuklenemedi.',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                        ),
+                        data: (fields) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${fields.length} alan iceriyor',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.74)),
+                            ),
+                            const SizedBox(height: 10),
+                            ...fields.map(
+                              (f) => Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
+                                  children: [
+                                    Text(_templateFieldIcon(f.fieldType)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        f.label,
+                                        style: const TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                    if (f.isRequired)
+                                      Text(
+                                        '*',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.8),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          context.pushNamed(
+                            'entryNew',
+                            queryParameters: {'templateId': '$templateId'},
+                          );
+                        },
+                        child: const Text('Basla ->'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -516,4 +671,29 @@ String _formatDateTr(DateTime d) {
     'Aralık',
   ];
   return '${d.day} ${months[d.month - 1]} ${d.year}';
+}
+
+String _templateFieldIcon(String type) {
+  switch (type) {
+    case 'number':
+      return '🔢';
+    case 'slider':
+      return '📊';
+    case 'text':
+      return '📝';
+    case 'long_text':
+      return '📄';
+    case 'select':
+      return '◉';
+    case 'tags':
+      return '🏷️';
+    case 'location':
+      return '📍';
+    case 'photo':
+      return '📸';
+    case 'weather':
+      return '🌤️';
+    default:
+      return '•';
+  }
 }
