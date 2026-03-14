@@ -39,6 +39,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         context.go('/');
       }
+    } catch (e) {
+      if (!mounted) return;
+      final raw = e.toString();
+      final message = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -53,6 +60,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         context.go('/');
       }
+    } catch (e) {
+      if (!mounted) return;
+      final raw = e.toString();
+      final message = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
