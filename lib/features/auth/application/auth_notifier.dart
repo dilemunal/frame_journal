@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/auth/token_storage.dart';
 import '../../../core/network/api_client.dart';
@@ -54,7 +55,19 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
   }
 
   Future<void> loginWithGoogle() async {
-    final response = await _apiClient.post('/api/auth/google-login');
+    final googleSignIn = GoogleSignIn();
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) return;
+
+    final auth = await googleUser.authentication;
+    final idToken = auth.idToken;
+    if (idToken == null) return;
+
+    final response = await _apiClient.post(
+      '/api/auth/google-login',
+      data: <String, dynamic>{'idToken': idToken},
+    );
+
     final data = response.data as Map<String, dynamic>;
     final accessToken = data['accessToken'] as String;
     final refreshToken = data['refreshToken'] as String;
@@ -64,7 +77,7 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
       refreshToken: refreshToken,
     );
 
-    state = state.copyWith(isAuthenticated: true);
+    state = AuthState(isAuthenticated: true, email: googleUser.email);
   }
 
   Future<void> loginWithApple() async {
