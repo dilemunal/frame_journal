@@ -125,3 +125,139 @@ final atmosphereProvider =
       await WeatherService().getWeather(location.lat, location.lng);
   return AtmosphereData(location: location, weather: weather);
 });
+
+// --- Ritim istatistikleri (AppEntries + RhythmCompletions) ---
+
+String _dateKey(DateTime d) {
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+/// Son 30 günün her günü için entry sayısı. Key: "YYYY-MM-DD", value: count.
+final FutureProvider<Map<String, int>> last30DaysEntryCountProvider =
+    FutureProvider<Map<String, int>>((ref) async {
+  final db = ref.read(appDatabaseProvider);
+  final now = DateTime.now();
+  final start = DateTime(now.year, now.month, now.day)
+      .subtract(const Duration(days: 30));
+  final entries = await (db.select(db.appEntries)
+        ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
+        ..limit(500))
+      .get();
+  final map = <String, int>{};
+  for (final e in entries) {
+    if (e.createdAt.isBefore(start)) continue;
+    final key = _dateKey(e.createdAt);
+    map[key] = (map[key] ?? 0) + 1;
+  }
+  return map;
+});
+
+/// Son 14 günün her günü için o günün son entry'sinin mood'u. (tarih, mood emoji); yoksa null.
+final FutureProvider<List<(DateTime, String?)>> last14DaysMoodProvider =
+    FutureProvider<List<(DateTime, String?)>>((ref) async {
+  final db = ref.read(appDatabaseProvider);
+  final now = DateTime.now();
+  final start = DateTime(now.year, now.month, now.day)
+      .subtract(const Duration(days: 14));
+  final entries = await (db.select(db.appEntries)
+        ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
+        ..limit(300))
+      .get();
+  final inRange =
+      entries.where((e) => !e.createdAt.isBefore(start)).toList();
+  final byDay = <String, AppEntry>{};
+  for (final e in inRange) {
+    final key = _dateKey(e.createdAt);
+    if (!byDay.containsKey(key)) byDay[key] = e;
+  }
+  final result = <(DateTime, String?)>[];
+  for (var i = 0; i < 15; i++) {
+    final d = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: 14 - i));
+    final key = _dateKey(d);
+    final entry = byDay[key];
+    result.add((d, entry?.mood));
+  }
+  return result;
+});
+
+/// Saat dağılımı: morning 6–12, afternoon 12–18, night 18–6. AppEntries createdAt.hour'a göre.
+final FutureProvider<Map<String, int>> hourDistributionProvider =
+    FutureProvider<Map<String, int>>((ref) async {
+  final db = ref.read(appDatabaseProvider);
+  final entries = await db.select(db.appEntries).get();
+  int morning = 0, afternoon = 0, night = 0;
+  for (final e in entries) {
+    final h = e.createdAt.hour;
+    if (h >= 6 && h < 12) {
+      morning++;
+    } else if (h >= 12 && h < 18) {
+      afternoon++;
+    } else {
+      night++;
+    }
+  }
+  return {'morning': morning, 'afternoon': afternoon, 'night': night};
+});
+
+/// Bu haftanın her günü (Pazartesi–Pazar) için (entry sayısı, mood). Key: günün 00:00 DateTime.
+final FutureProvider<Map<DateTime, (int, String?)>> thisWeekEntriesProvider =
+    FutureProvider<Map<DateTime, (int, String?)>>((ref) async {
+  final db = ref.read(appDatabaseProvider);
+  final now = DateTime.now();
+  final weekday = now.weekday;
+  final monday = DateTime(now.year, now.month, now.day)
+      .subtract(Duration(days: weekday - 1));
+  final sunday = monday.add(const Duration(days: 6));
+  final end = DateTime(sunday.year, sunday.month, sunday.day, 23, 59, 59);
+  final entries = await (db.select(db.appEntries)
+        ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
+        ..limit(200))
+      .get();
+  final inWeek = entries
+      .where((e) =>
+          !e.createdAt.isBefore(monday) && !e.createdAt.isAfter(end))
+      .toList();
+  final countByDay = <String, int>{};
+  final lastByDay = <String, AppEntry>{};
+  for (final e in inWeek) {
+    final key = _dateKey(e.createdAt);
+    countByDay[key] = (countByDay[key] ?? 0) + 1;
+    if (!lastByDay.containsKey(key) ||
+        e.createdAt.isAfter(lastByDay[key]!.createdAt)) {
+      lastByDay[key] = e;
+    }
+  }
+  final result = <DateTime, (int, String?)>{};
+  for (var i = 0; i < 7; i++) {
+    final d = monday.add(Duration(days: i));
+    final key = _dateKey(d);
+    final count = countByDay[key] ?? 0;
+    final mood = lastByDay[key]?.mood;
+    result[d] = (count, mood);
+  }
+  return result;
+});
+
+/// Geçmişten bugün: bu ay ve gün ile eşleşen geçmiş yıllardaki entry'ler. En fazla 3, yeniden eskiye.
+final FutureProvider<List<AppEntry>> pastYearsTodayEntriesProvider =
+    FutureProvider<List<AppEntry>>((ref) async {
+  final db = ref.read(appDatabaseProvider);
+  final now = DateTime.now();
+  final month = now.month;
+  final day = now.day;
+  final thisYear = now.year;
+  final entries = await (db.select(db.appEntries)
+        ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
+      .get();
+  final list = <AppEntry>[];
+  for (final e in entries) {
+    if (e.createdAt.month == month &&
+        e.createdAt.day == day &&
+        e.createdAt.year != thisYear) {
+      list.add(e);
+      if (list.length >= 3) break;
+    }
+  }
+  return list;
+});

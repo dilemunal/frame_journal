@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/data/prompt_questions.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/di/core_providers.dart';
+import '../../ritim/application/rhythm_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../domain/entry_block.dart';
 import 'widgets/atmosphere_strip.dart';
@@ -288,6 +289,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
           })
         : null;
 
+    final createdAt = DateTime.now();
     try {
       await db.into(db.appEntries).insert(
             AppEntriesCompanion.insert(
@@ -306,7 +308,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
               locationJson: locationJson != null
                   ? Value(locationJson)
                   : const Value.absent(),
-              createdAt: DateTime.now(),
+              createdAt: createdAt,
             ),
           );
     } catch (_) {
@@ -318,9 +320,15 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
       return;
     }
 
-    await _clearDraft();
+    await ref.read(rhythmCompletionsProvider.notifier).markFromEntryTime(createdAt);
     ref.invalidate(recentEntriesProvider);
     ref.invalidate(memoryEntriesProvider);
+    ref.invalidate(last30DaysEntryCountProvider);
+    ref.invalidate(last14DaysMoodProvider);
+    ref.invalidate(hourDistributionProvider);
+    ref.invalidate(thisWeekEntriesProvider);
+    ref.invalidate(pastYearsTodayEntriesProvider);
+    await _clearDraft();
     if (mounted) context.pop();
   }
 
