@@ -1,4 +1,4 @@
-/// Giriş içeriği blokları (metin + ses).
+/// Giriş içeriği blokları (metin + görsel + ses).
 sealed class EntryBlock {}
 
 class TextBlock extends EntryBlock {
@@ -11,4 +11,14 @@ class AudioBlock extends EntryBlock {
 
   final String filePath;
   final Duration duration;
+}
+
+class ImageBlock extends EntryBlock {
+  ImageBlock({
+    required this.filePath,
+    this.heightFactor = 0.5,
+  });
+
+  final String filePath;
+  final double heightFactor;
 }

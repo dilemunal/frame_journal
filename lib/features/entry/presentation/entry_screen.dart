@@ -4,20 +4,30 @@ import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:reorderables/reorderables.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/data/prompt_questions.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/di/core_providers.dart';
-import '../../../core/theme/app_theme.dart';
 import '../domain/entry_block.dart';
 import 'widgets/atmosphere_strip.dart';
-import 'widgets/audio_block_row.dart';
-import 'widgets/audio_record_button.dart';
+import 'widgets/audio_block_widget.dart';
+import 'widgets/draft_recovery_sheet.dart';
+import 'widgets/glass_card.dart';
+import 'widgets/keyboard_toolbar.dart';
 import 'widgets/mood_bar.dart' show MoodBar, moodEmoji;
-import 'widgets/prompt_dice_widget.dart';
+import 'widgets/recording_overlay.dart';
+
+class _PromptEntry {
+  _PromptEntry(this.question) : controller = TextEditingController();
+  final String question;
+  final TextEditingController controller;
+}
 
 /// Yeni giriş ekranı. Route: /entry/new
 class EntryScreen extends ConsumerStatefulWidget {
@@ -32,10 +42,9 @@ class EntryScreen extends ConsumerStatefulWidget {
 class _EntryScreenState extends ConsumerState<EntryScreen>
     with WidgetsBindingObserver {
   final _textController = TextEditingController();
-  final List<EntryBlock> _blocks = [TextBlock('')];
-  final List<String> _photoPaths = [];
+  final List<EntryBlock> _blocks = [];
+  final List<_PromptEntry> _prompts = [];
   double _moodValue = 0.5;
-  String? _currentPrompt;
   bool _isFocusMode = false;
   Timer? _draftTimer;
 
@@ -50,6 +59,9 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   @override
   void dispose() {
     _draftTimer?.cancel();
+    for (final p in _prompts) {
+      p.controller.dispose();
+    }
     _textController.removeListener(_onTextChanged);
     WidgetsBinding.instance.removeObserver(this);
     _textController.dispose();
@@ -57,9 +69,6 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   }
 
   void _onTextChanged() {
-    if (_blocks.isNotEmpty && _blocks.first is TextBlock) {
-      _blocks[0] = TextBlock(_textController.text);
-    }
     _draftTimer?.cancel();
     _draftTimer = Timer(const Duration(seconds: 10), _persistDraft);
   }
@@ -116,68 +125,22 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
       isDismissible: false,
       enableDrag: false,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: Colors.black.withValues(alpha: 0.35),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Yarım kalan bir şey var...',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                text.length > 40 ? '${text.substring(0, 40)}...' : text,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textMuted(AppColors.textPrimary),
-                    ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _textController.text = text;
-                        setState(() {
-                          _moodValue = moodValue;
-                          if (_blocks.isNotEmpty) _blocks[0] = TextBlock(text);
-                        });
-                      },
-                      child: const Text('Devam Et'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () async {
-                        await _clearDraft();
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                      ),
-                      child: const Text('Sil, Başla'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+      builder: (context) => DraftRecoverySheet(
+        previewText: text,
+        onContinue: () {
+          Navigator.pop(context);
+          _textController.text = text;
+          setState(() => _moodValue = moodValue);
+        },
+        onDiscard: () async {
+          await _clearDraft();
+          if (!context.mounted) return;
+          Navigator.pop(context);
+        },
       ),
     );
   }
@@ -187,15 +150,14 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     if (state == AppLifecycleState.paused) _persistDraft();
   }
 
-  String get _freeText =>
-      _blocks.whereType<TextBlock>().map((b) => b.text).join('\n\n');
+  String get _freeText => _textController.text.trim();
 
   Future<void> _pickPhoto() async {
     try {
       final picker = ImagePicker();
       final x = await picker.pickImage(source: ImageSource.gallery);
       if (x != null && x.path.isNotEmpty && mounted) {
-        setState(() => _photoPaths.add(x.path));
+        setState(() => _blocks.add(ImageBlock(filePath: x.path)));
       }
     } catch (_) {
       if (mounted) {
@@ -212,9 +174,50 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     }
   }
 
+  Future<void> _addPrompt() async {
+    try {
+      final q = await PromptQuestions.next();
+      if (q == null || !mounted) return;
+      setState(() => _prompts.insert(0, _PromptEntry(q)));
+    } catch (_) {}
+  }
+
+  Future<void> _openRecordingOverlay() async {
+    final result = await showGeneralDialog<RecordingResult>(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'recording',
+      pageBuilder: (dialogContext, animation, secondaryAnimation) =>
+          const RecordingOverlay(),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _blocks.add(AudioBlock(filePath: result.filePath, duration: result.duration));
+      });
+    }
+  }
+
   Future<void> _saveEntry() async {
-    final text = _freeText.trim();
-    if (text.isEmpty) {
+    final text = _freeText;
+    final promptAnswers = _prompts
+        .where((p) => p.controller.text.trim().isNotEmpty)
+        .map((p) => '**${p.question}**\n${p.controller.text.trim()}')
+        .join('\n\n');
+    final fullText = [
+      if (text.isNotEmpty) text,
+      if (promptAnswers.isNotEmpty) promptAnswers,
+    ].join('\n\n---\n\n');
+
+    final content = fullText.trim();
+    final mediaBlocks = _blocks.where((b) => b is! TextBlock).toList();
+    final imagePaths = mediaBlocks.whereType<ImageBlock>().map((e) => e.filePath).toList();
+    final audioItems = mediaBlocks
+        .whereType<AudioBlock>()
+        .map((e) => {'path': e.filePath, 'durationSec': e.duration.inSeconds})
+        .toList();
+
+    final hasAnyContent = content.isNotEmpty || imagePaths.isNotEmpty || audioItems.isNotEmpty;
+    if (!hasAnyContent) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Bir şeyler yaz.')),
@@ -222,6 +225,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
       }
       return;
     }
+
     final db = ref.read(appDatabaseProvider);
     final asyncAtm = ref.read(atmosphereProvider);
     final atm = asyncAtm.valueOrNull;
@@ -244,8 +248,11 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     }
 
     final moodEmojiStr = moodEmoji(_moodValue);
-    final valuesJsonStr = _photoPaths.isNotEmpty
-        ? jsonEncode({'photos': _photoPaths})
+    final valuesJsonStr = (imagePaths.isNotEmpty || audioItems.isNotEmpty)
+        ? jsonEncode({
+            if (imagePaths.isNotEmpty) 'photos': imagePaths,
+            if (audioItems.isNotEmpty) 'audios': audioItems,
+          })
         : null;
 
     try {
@@ -255,7 +262,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
               templateId: widget.templateId != null
                   ? Value(widget.templateId)
                   : const Value.absent(),
-              freeText: Value(text),
+              freeText: Value(content),
               mood: Value(moodEmojiStr),
               valuesJson: valuesJsonStr != null
                   ? Value(valuesJsonStr)
@@ -285,8 +292,10 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   }
 
   Future<void> _handleBack() async {
-    final hasText = _freeText.trim().isNotEmpty;
-    if (!hasText) {
+    final hasPromptText = _prompts.any((p) => p.controller.text.trim().isNotEmpty);
+    final hasMedia = _blocks.isNotEmpty;
+    final hasContent = _freeText.trim().isNotEmpty || hasPromptText || hasMedia;
+    if (!hasContent) {
       if (mounted) context.pop();
       return;
     }
@@ -317,248 +326,346 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
     final templatesAsync = ref.watch(journalTemplatesProvider);
-    final selectedTemplate = templatesAsync.maybeWhen(
-      data: (list) => widget.templateId == null
-          ? null
-          : list.where((t) => t.id == widget.templateId).firstOrNull,
-      orElse: () => null,
-    );
-    // Opak arka plan: mood'a göre hafif soğuk → sıcak ton (şeffaf değil, siyah görünmesin)
-    final backgroundColor = Color.lerp(
-      const Color(0xFFE8ECF0),
-      const Color(0xFFF5EDE4),
-      _moodValue,
-    )!;
+    JournalTemplate? selectedTemplate;
+    templatesAsync.whenData((list) {
+      if (widget.templateId == null) return;
+      for (final t in list) {
+        if (t.id == widget.templateId) {
+          selectedTemplate = t;
+          break;
+        }
+      }
+    });
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      color: backgroundColor,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: _isFocusMode
-            ? null
-            : AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                scrolledUnderElevation: 0,
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
-                  onPressed: _handleBack,
-                ),
-                title: selectedTemplate == null
-                    ? null
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            selectedTemplate.icon,
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              selectedTemplate.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.titleSmall?.copyWith(
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ],
+    final hour = DateTime.now().hour;
+    final overlayColor = (hour >= 20 || hour < 6)
+        ? const Color(0x66000000)
+        : const Color(0x33000000);
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0.0;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset('assets/images/background.webp', fit: BoxFit.cover),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 800),
+          color: overlayColor,
+        ),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: _handleBack,
+            ),
+            title: selectedTemplate == null
+                ? null
+                : Row(
+                    children: [
+                      Text(selectedTemplate!.icon),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          selectedTemplate!.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                actions: [
-                  TextButton(
-                    onPressed: _saveEntry,
-                    child: Text(
-                      'Kaydet',
-                      style: theme.labelLarge?.copyWith(color: AppColors.accent),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-        body: Column(
-          children: [
-            if (!_isFocusMode) ...[
-              const AtmosphereStrip(),
-              Padding(
-                padding: const EdgeInsets.only(left: 20, top: 4),
-                child: Text(
-                  'Ruh hali',
-                  style: theme.labelSmall?.copyWith(
-                    color: AppColors.textMuted(AppColors.textPrimary),
-                  ),
+            actions: [
+              TextButton(
+                onPressed: _saveEntry,
+                child: const Text(
+                  'Kaydet',
+                  style: TextStyle(color: Colors.white),
                 ),
-              ),
-              MoodBar(
-                value: _moodValue,
-                onChanged: (v) => setState(() => _moodValue = v),
               ),
             ],
-            Expanded(
-              child: Stack(
-                children: [
-                  GestureDetector(
-                    onVerticalDragEnd: (details) {
-                      if (details.velocity.pixelsPerSecond.dy < -300) {
-                        setState(() => _isFocusMode = true);
-                      } else if (details.velocity.pixelsPerSecond.dy > 300) {
-                        setState(() => _isFocusMode = false);
-                      }
-                    },
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_currentPrompt != null)
-                            AnimatedOpacity(
-                              opacity: _textController.text.isEmpty ? 1.0 : 0.45,
-                              duration: const Duration(milliseconds: 300),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 8),
-                                child: Text(
-                                  _currentPrompt!,
-                                  style: theme.bodySmall?.copyWith(
-                                    color: AppColors.textMuted(AppColors.textPrimary),
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          TextField(
-                            controller: _textController,
-                            onChanged: (_) => setState(() {}),
-                            maxLines: null,
-                            minLines: 8,
-                            style: theme.bodyLarge?.copyWith(
-                              color: AppColors.textPrimary,
-                              height: _isFocusMode ? 2.0 : 1.8,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Ne düşünüyorsun?',
-                              hintStyle: TextStyle(
-                                color: AppColors.textMuted(AppColors.textPrimary),
-                              ),
-                              border: InputBorder.none,
-                              filled: false,
-                            ),
-                          ),
-                          ..._blocks.whereType<AudioBlock>().map(
-                                (b) => AudioBlockRow(block: b),
-                              ),
-                          if (!_isFocusMode && _photoPaths.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 72,
-                              child: ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _photoPaths.length,
-                                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                                itemBuilder: (context, i) {
-                                  final path = _photoPaths[i];
-                                  return SizedBox(
-                                    width: 72,
-                                    height: 72,
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.file(
-                                            File(path),
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                        Positioned(
-                                          top: 4,
-                                          right: 4,
-                                          child: GestureDetector(
-                                            onTap: () => setState(() => _photoPaths.removeAt(i)),
-                                            child: const Icon(Icons.close, color: Colors.white, size: 20),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          if (!_isFocusMode) ...[
-                            OutlinedButton.icon(
-                              onPressed: _pickPhoto,
-                              icon: const Icon(Icons.photo_library_outlined, size: 20),
-                              label: const Text('Fotoğraf ekle'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.textPrimary,
-                                side: BorderSide(color: AppColors.textMuted(AppColors.textPrimary)),
-                              ),
-                            ),
-                            AudioRecordButton(
-                              onRecordingDone: (path, duration) {
-                                setState(() {
-                                  _blocks.add(
-                                    AudioBlock(filePath: path, duration: duration),
-                                  );
-                                  _blocks.add(TextBlock(''));
-                                });
-                              },
-                            ),
-                          ],
-                          if (_isFocusMode) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              '${_freeText.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).length} kelime',
-                              style: theme.labelSmall?.copyWith(
-                                color: AppColors.textMuted(AppColors.textPrimary),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+          ),
+          body: GestureDetector(
+            onVerticalDragEnd: (details) {
+              if (details.velocity.pixelsPerSecond.dy < -300) {
+                setState(() => _isFocusMode = true);
+              } else if (details.velocity.pixelsPerSecond.dy > 300) {
+                setState(() => _isFocusMode = false);
+              }
+            },
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    0,
+                    20,
+                    keyboardVisible ? 90 : 24,
                   ),
-                  if (!_isFocusMode)
-                    Positioned(
-                      right: 20,
-                      bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
-                      child: PromptDiceButton(
-                        onPromptSelected: (q) =>
-                            setState(() => _currentPrompt = q),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 400),
+                        opacity: _isFocusMode ? 0 : 1,
+                        child: const AtmosphereStrip(),
                       ),
-                    ),
-                  if (_isFocusMode)
-                    Positioned(
-                      right: 20,
-                      bottom: 20,
-                      child: GestureDetector(
-                        onTap: _saveEntry,
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.accent.withValues(alpha: 0.8),
-                          ),
-                          child: const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 20,
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 400),
+                        opacity: _isFocusMode ? 0 : 1,
+                        child: GlassCard(
+                          opacity: 0.12,
+                          borderRadius: 16,
+                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                          child: MoodBar(
+                            value: _moodValue,
+                            onChanged: (v) => setState(() => _moodValue = v),
                           ),
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      ..._prompts.map((p) {
+                        return Padding(
+                          key: ValueKey(p),
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Dismissible(
+                            key: ValueKey(p.question.hashCode ^ p.controller.hashCode),
+                            direction: DismissDirection.endToStart,
+                            onDismissed: (_) {
+                              setState(() => _prompts.remove(p));
+                              p.controller.dispose();
+                            },
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.delete, color: Colors.white),
+                            ),
+                            child: GlassCard(
+                              borderRadius: 14,
+                              opacity: 0.12,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '🎲 ${p.question}',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextField(
+                                    controller: p.controller,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: 'Cevabını yaz...',
+                                      hintStyle: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.4),
+                                      ),
+                                      border: InputBorder.none,
+                                    ),
+                                    maxLines: null,
+                                  ),
+                                ],
+                              ),
+                            )
+                                .animate()
+                                .slideY(
+                                  begin: -0.3,
+                                  end: 0,
+                                  duration: 350.ms,
+                                  curve: Curves.easeOut,
+                                )
+                                .fadeIn(duration: 350.ms),
+                          ),
+                        );
+                      }),
+                      GlassCard(
+                        opacity: 0.08,
+                        borderRadius: 20,
+                        child: TextField(
+                          controller: _textController,
+                          maxLines: null,
+                          minLines: 10,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            height: _isFocusMode ? 2.0 : 1.8,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Ne düşünüyorsun?',
+                            hintStyle: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.4),
+                            ),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_blocks.isNotEmpty)
+                        ReorderableColumn(
+                          needsLongPressDraggable: true,
+                          onReorder: (oldIndex, newIndex) {
+                            setState(() {
+                              final item = _blocks.removeAt(oldIndex);
+                              _blocks.insert(newIndex, item);
+                            });
+                          },
+                          children: List.generate(_blocks.length, (index) {
+                            final block = _blocks[index];
+                            if (block is AudioBlock) {
+                              return AudioBlockWidget(
+                                key: ValueKey(block.filePath),
+                                block: block,
+                                onDelete: () => _confirmDeleteAudio(index, block),
+                              );
+                            }
+                            if (block is ImageBlock) {
+                              return _imageBlock(block, index);
+                            }
+                            return const SizedBox.shrink(key: ValueKey('empty'));
+                          }),
+                        ),
+                      if (_isFocusMode)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(
+                            '${_freeText.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).length} kelime',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (_isFocusMode)
+                  Positioned(
+                    right: 20,
+                    bottom: 20,
+                    child: GestureDetector(
+                      onTap: _saveEntry,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF8FA5BA),
+                        ),
+                        child: const Icon(Icons.check, color: Colors.white, size: 20),
+                      ),
                     ),
-                ],
+                  ),
+                KeyboardToolbar(
+                  visible: keyboardVisible && !_isFocusMode,
+                  bottomInset: MediaQuery.of(context).viewInsets.bottom,
+                  onPickPhoto: _pickPhoto,
+                  onRecord: _openRecordingOverlay,
+                  onPrompt: _addPrompt,
+                  onSave: _saveEntry,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _imageBlock(ImageBlock block, int index) {
+    final height = MediaQuery.of(context).size.width * block.heightFactor;
+    return Padding(
+      key: ValueKey(block.filePath),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            Image.file(
+              File(block.filePath),
+              height: height,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GlassCard(
+                padding: const EdgeInsets.all(4),
+                borderRadius: 999,
+                child: GestureDetector(
+                  onTap: () => setState(() => _blocks.removeAt(index)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 8,
+              child: Center(
+                child: GestureDetector(
+                  onVerticalDragUpdate: (d) {
+                    setState(() {
+                      final next =
+                          (block.heightFactor + d.delta.dy / 300).clamp(0.25, 1.0);
+                      _blocks[index] = ImageBlock(
+                        filePath: block.filePath,
+                        heightFactor: next,
+                      );
+                    });
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteAudio(int index, AudioBlock block) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ses notunu sil'),
+        content: const Text('Bu ses notu kalici olarak silinecek.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Vazgec'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final file = File(block.filePath);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      if (index >= 0 && index < _blocks.length) _blocks.removeAt(index);
+    });
   }
 }
