@@ -85,13 +85,71 @@ class UserSettings extends Table {
       .withDefault(const Constant(false))();
 }
 
+// --- Template system (GÖREV 2) ---
+
+class JournalTemplates extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get icon => text()();
+  TextColumn get color => text()();
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
+class TemplateFields extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get templateId =>
+      integer().references(JournalTemplates, #id, onDelete: KeyAction.cascade)();
+  TextColumn get label => text()();
+  /// "number" | "text" | "long_text" | "slider" | "photo" | "location" | "select" | "tags" | "weather"
+  TextColumn get fieldType => text()();
+  TextColumn get options => text().nullable()();
+  BoolColumn get isRequired => boolean().withDefault(const Constant(false))();
+  IntColumn get sortOrder => integer()();
+  TextColumn get unit => text().nullable()();
+}
+
+class AppEntries extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get userId => integer()();
+  IntColumn get templateId =>
+      integer().nullable().references(JournalTemplates, #id)();
+  TextColumn get title => text().nullable()();
+  TextColumn get freeText => text().nullable()();
+  TextColumn get mood => text().nullable()();
+  TextColumn get valuesJson => text().nullable()();
+  TextColumn get locationJson => text().nullable()();
+  TextColumn get weatherJson => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 @DriftDatabase(
-  tables: [JournalEntries, TemplateInstances, MediaAssets, Tags, UserSettings],
+  tables: [
+    JournalEntries,
+    TemplateInstances,
+    MediaAssets,
+    Tags,
+    UserSettings,
+    JournalTemplates,
+    TemplateFields,
+    AppEntries,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase({QueryExecutor? executor})
-    : super(executor ?? driftDatabase(name: 'journal'));
+      : super(executor ?? driftDatabase(name: 'journal'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (migrator, from, to) async {
+          if (from < 2) {
+            await migrator.createTable(journalTemplates);
+            await migrator.createTable(templateFields);
+            await migrator.createTable(appEntries);
+          }
+        },
+      );
 }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/application/auth_notifier.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/templates/presentation/template_builder_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -40,6 +41,11 @@ GoRouter appRouter(Ref ref) {
         path: '/',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/templates/builder',
+        name: 'templateBuilder',
+        builder: (context, state) => const TemplateBuilderScreen(),
       ),
     ],
   );

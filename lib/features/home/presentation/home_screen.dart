@@ -1,399 +1,429 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class HomeScreen extends StatelessWidget {
+import '../../../core/di/core_providers.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../auth/application/auth_notifier.dart';
+
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  static const _animDuration = Duration(milliseconds: 400);
+
+  @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authNotifierProvider);
+    final firstName = _firstNameFromEmail(auth.email);
+    final now = DateTime.now();
+    final hour = now.hour;
+
     return Scaffold(
-      body: Stack(
-        children: [
-          const _Background(),
-          const _HorizonLine(),
-          const _WaterLines(),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  SizedBox(height: 40),
-                  _TopBar(),
-                  SizedBox(height: 10),
-                  _WeekRow(),
-                  Spacer(),
-                  _TodaySection(),
-                  SizedBox(height: 80),
-                ],
-              ),
-            ),
-          ),
-          const _BottomNavPill(),
-        ],
-      ),
-    );
-  }
-}
-
-class _Background extends StatelessWidget {
-  const _Background();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFCDD5DC),
-            Color(0xFFC4CDD6),
-            Color(0xFFBBCAD4),
-            Color(0xFFB8C4C8),
-            Color(0xFFBEC4C0),
-            Color(0xFFC8C4B4),
-            Color(0xFFD0C4A8),
-            Color(0xFFCEC0A0),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HorizonLine extends StatelessWidget {
-  const _HorizonLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: const Alignment(0, -0.05),
-      child: Container(
-        height: 1,
-        margin: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Colors.transparent,
-              const Color(0xFFC8BEA8).withValues(alpha: 0.45),
-              const Color(0xFFD2C6AC).withValues(alpha: 0.6),
-              const Color(0xFFC8BEA8).withValues(alpha: 0.45),
-              Colors.transparent,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WaterLines extends StatelessWidget {
-  const _WaterLines();
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: const Alignment(0, 0.2),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.5,
-        child: Stack(
-          children: List.generate(6, (index) {
-            final top = 0.1 + index * 0.13;
-            return Positioned.fill(
-              top: top * MediaQuery.of(context).size.height * 0.5,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: AnimatedOpacity(
-                  opacity: 0.35,
-                  duration: const Duration(milliseconds: 1500),
-                  child: Container(
-                    height: 1,
-                    margin: const EdgeInsets.symmetric(horizontal: 32),
-                    decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.32),
-                      borderRadius: BorderRadius.circular(1),
-                    ),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final anCardHeight = constraints.maxHeight * 0.35;
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _TopBar(firstName: firstName),
+                      SizedBox(height: constraints.maxHeight * 0.02),
+                      _AnCard(
+                        height: anCardHeight,
+                        hour: hour,
+                        date: now,
+                        showWeather: false,
+                      ),
+                      SizedBox(height: constraints.maxHeight * 0.03),
+                      _QuickEntryButton(
+                        onTap: () => _openQuickEntrySheet(context),
+                      ),
+                      SizedBox(height: constraints.maxHeight * 0.035),
+                      const _TemplateCardsSection(),
+                      SizedBox(height: constraints.maxHeight * 0.025),
+                      const _SonGirislerSection(),
+                      const SizedBox(height: 24),
+                    ],
                   ),
                 ),
               ),
             );
-          }),
+          },
         ),
       ),
+    );
+  }
+
+  String _firstNameFromEmail(String? email) {
+    if (email == null || email.isEmpty) return '';
+    final part = email.split('@').first;
+    if (part.isEmpty) return '';
+    return part.length > 1
+        ? '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}'
+        : part.toUpperCase();
+  }
+
+  void _openQuickEntrySheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _QuickEntryBottomSheet(),
     );
   }
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar();
+  const _TopBar({required this.firstName});
+
+  final String firstName;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'İyi Günler',
-              style: textTheme.displaySmall?.copyWith(
-                fontWeight: FontWeight.w200,
-                color: const Color(0xFF201C14).withValues(alpha: 0.8),
-                letterSpacing: -0.6,
-              ),
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            _GlassPill(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.brush_rounded, size: 16, color: Color(0xFF4A4330)),
-                  SizedBox(width: 8),
-                  Icon(Icons.grid_view_rounded, size: 16, color: Color(0xFF4A4330)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const _Avatar(),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _WeekRow extends StatelessWidget {
-  const _WeekRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final baseStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          letterSpacing: 1,
-          fontWeight: FontWeight.w300,
-          color: const Color(0xFF3C3728).withValues(alpha: 0.35),
-        );
-
-    Widget chip(String label, {bool isToday = false}) {
-      final style = baseStyle?.copyWith(
-        color: isToday
-            ? const Color(0xFF28241A).withValues(alpha: 0.68)
-            : baseStyle.color,
-      );
-      return Padding(
-        padding: const EdgeInsets.only(right: 10),
-        child: Column(
-          children: [
-            Text(label, style: style),
-            if (isToday)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                width: 3,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF64583C).withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
+    final theme = Theme.of(context).textTheme;
+    final greeting = firstName.isEmpty ? 'Merhaba.' : 'Merhaba, $firstName';
+    final initials = firstName.isEmpty
+        ? '?'
+        : firstName.length >= 2
+        ? firstName.substring(0, 2).toUpperCase()
+        : firstName.toUpperCase();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          chip('P'),
-          chip('S'),
-          chip('Ç'),
-          chip('P', isToday: true),
-          chip('C'),
-          chip('C'),
-          chip('P'),
+          Text(
+            greeting,
+            style: theme.bodyMedium?.copyWith(
+              color: AppColors.textMuted(AppColors.textPrimary),
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0.2,
+            ),
+          ),
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: AppColors.surface,
+            child: Text(
+              initials,
+              style: theme.labelMedium?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _TodaySection extends StatelessWidget {
-  const _TodaySection();
+String _formatDateTr(DateTime d) {
+  const months = [
+    'Ocak',
+    'Şubat',
+    'Mart',
+    'Nisan',
+    'Mayıs',
+    'Haziran',
+    'Temmuz',
+    'Ağustos',
+    'Eylül',
+    'Ekim',
+    'Kasım',
+    'Aralık',
+  ];
+  const weekdays = [
+    'Pazartesi',
+    'Salı',
+    'Çarşamba',
+    'Perşembe',
+    'Cuma',
+    'Cumartesi',
+    'Pazar',
+  ];
+  final wd = d.weekday - 1;
+  return '${d.day} ${months[d.month - 1]}, ${weekdays[wd]}';
+}
+
+class _AnCard extends StatelessWidget {
+  const _AnCard({
+    required this.height,
+    required this.hour,
+    required this.date,
+    required this.showWeather,
+  });
+
+  final double height;
+  final int hour;
+  final DateTime date;
+  final bool showWeather;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context).textTheme;
+    final tint = AppColors.anCardTintForHour(hour);
+    final greeting = greetingForHour(hour);
+    final dateStr = _formatDateTr(date);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              '✦',
-              style: textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF242016).withValues(alpha: 0.55),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Bugün için',
-              style: textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w300,
-                color: const Color(0xFF242016).withValues(alpha: 0.55),
-                letterSpacing: 0.3,
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: AnimatedContainer(
+        duration: _HomeScreenState._animDuration,
+        curve: Curves.easeInOut,
+        height: height,
+        decoration: BoxDecoration(
+          color: tint,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              offset: const Offset(0, 2),
+              blurRadius: 12,
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 110,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: const [
-              _TemplateCard(
-                emoji: '🤿',
-                labelLines: ['Dalış', 'Günlüğü'],
-                variant: _TemplateCardVariant.primary,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                greeting,
+                style: theme.titleLarge?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.3,
+                ),
               ),
-              _TemplateCard(
-                emoji: '💧',
-                labelLines: ['Su', 'Takibi'],
-                variant: _TemplateCardVariant.primary,
+              const SizedBox(height: 8),
+              Text(
+                dateStr,
+                style: theme.bodySmall?.copyWith(
+                  color: AppColors.textMuted(AppColors.textPrimary),
+                  letterSpacing: 0.5,
+                  height: 1.4,
+                ),
               ),
-              _TemplateCard(
-                emoji: '📖',
-                labelLines: ['Serbest', 'Yazı'],
-                variant: _TemplateCardVariant.secondary,
-              ),
-              _TemplateCard(
-                emoji: '🎾',
-                labelLines: ['Tenis', 'Maçı'],
-                variant: _TemplateCardVariant.secondary,
-              ),
+              if (showWeather) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.wb_sunny_outlined,
+                      size: 18,
+                      color: AppColors.textMuted(AppColors.textPrimary),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '— °C',
+                      style: theme.bodySmall?.copyWith(
+                        color: AppColors.textMuted(AppColors.textPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-enum _TemplateCardVariant { primary, secondary }
+class _QuickEntryButton extends StatelessWidget {
+  const _QuickEntryButton({required this.onTap});
 
-class _TemplateCard extends StatelessWidget {
-  const _TemplateCard({
-    required this.emoji,
-    required this.labelLines,
-    required this.variant,
-  });
-
-  final String emoji;
-  final List<String> labelLines;
-  final _TemplateCardVariant variant;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final isPrimary = variant == _TemplateCardVariant.primary;
-
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: _GlassContainer(
-        opacity: isPrimary ? 0.2 : 0.15,
-        borderOpacity: isPrimary ? 0.5 : 0.38,
-        child: SizedBox(
-          width: 112,
-          height: 96,
-          child: Padding(
-            padding: const EdgeInsets.all(13),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  emoji,
-                  style: const TextStyle(fontSize: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  offset: const Offset(0, 2),
+                  blurRadius: 8,
                 ),
-                Text(
-                  labelLines.join('\n'),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w300,
-                        color: const Color(0xFF221E14).withValues(alpha: 0.72),
-                        height: 1.2,
-                      ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                'Bugünü kaydet →',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TemplateCardsSection extends ConsumerWidget {
+  const _TemplateCardsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context).textTheme;
+    final templatesAsync = ref.watch(journalTemplatesProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Şablonlar',
+            style: theme.labelMedium?.copyWith(
+              color: AppColors.textMuted(AppColors.textPrimary),
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 88,
+          child: templatesAsync.when(
+            data: (templates) {
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                scrollDirection: Axis.horizontal,
+                itemCount: templates.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, i) {
+                  if (i == templates.length) {
+                    return _TemplateChip(
+                      emoji: '+',
+                      label: 'Yeni şablon',
+                      isNew: true,
+                      onTap: () => context.pushNamed('templateBuilder'),
+                    );
+                  }
+                  final t = templates[i];
+                  return _TemplateChip(
+                    emoji: t.icon,
+                    label: t.name,
+                    isNew: false,
+                  );
+                },
+              );
+            },
+            loading: () => ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: 4,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, i) => _TemplateChip(
+                emoji: i == 3 ? '+' : '📝',
+                label: i == 3 ? 'Yeni şablon' : '...',
+                isNew: i == 3,
+              ),
+            ),
+            error: (_, __) => ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              children: [
+                _TemplateChip(
+                  emoji: '+',
+                  label: 'Yeni şablon',
+                  isNew: true,
+                  onTap: () => context.pushNamed('templateBuilder'),
                 ),
               ],
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _BottomNavPill extends StatelessWidget {
-  const _BottomNavPill();
+class _TemplateChip extends StatelessWidget {
+  const _TemplateChip({
+    required this.emoji,
+    required this.label,
+    this.isNew = false,
+    this.onTap,
+  });
+
+  final String emoji;
+  final String label;
+  final bool isNew;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-            child: Container(
-              height: 56,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD2CFC3).withValues(alpha: 0.52),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.65),
-                  width: 0.8,
+    final theme = Theme.of(context).textTheme;
+    final child = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 22)),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: theme.labelSmall?.copyWith(
+            color: isNew
+                ? AppColors.accent
+                : AppColors.textMuted(AppColors.textPrimary),
+            fontWeight: isNew ? FontWeight.w600 : FontWeight.w400,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+    return SizedBox(
+      width: 100,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  offset: const Offset(0, 1),
+                  blurRadius: 6,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF373020).withValues(alpha: 0.09),
-                    offset: const Offset(0, 2),
-                    blurRadius: 14,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: const [
-                  _NavItem(
-                    icon: Icons.home_rounded,
-                    label: 'Ana',
-                    isActive: true,
-                  ),
-                  _NavItem(
-                    icon: Icons.grid_view_rounded,
-                    label: 'Şablonlar',
-                  ),
-                  _NavItem(
-                    icon: Icons.watch_later_outlined,
-                    label: 'Anılar',
-                  ),
-                  _NavItem(
-                    icon: Icons.person_rounded,
-                    label: 'Profil',
-                  ),
-                ],
-              ),
+              ],
             ),
+            child: child,
           ),
         ),
       ),
@@ -401,88 +431,93 @@ class _BottomNavPill extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.isActive = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool isActive;
+class _SonGirislerSection extends StatelessWidget {
+  const _SonGirislerSection();
 
   @override
   Widget build(BuildContext context) {
-    const activeBase = Color(0xFF241C16);
-    const inactiveBase = Color(0xFF504834);
-    final activeColor = activeBase.withValues(alpha: 0.75);
-    final inactiveColor = inactiveBase.withValues(alpha: 0.38);
-
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        decoration: BoxDecoration(
-          color: isActive
-              ? Colors.white.withValues(alpha: 0.38)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isActive ? activeColor : inactiveColor,
+    final theme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Son girişler',
+            style: theme.labelMedium?.copyWith(
+              color: AppColors.textMuted(AppColors.textPrimary),
+              letterSpacing: 0.5,
             ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 9,
-                    letterSpacing: 0.5,
-                    fontWeight: FontWeight.w300,
-                    color: isActive
-                        ? activeBase.withValues(alpha: 0.7)
-                        : inactiveBase.withValues(alpha: 0.35),
-                  ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 10),
+        ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 3,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) => _SonGirisPlaceholder(index: index),
+        ),
+      ],
     );
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar();
+class _SonGirisPlaceholder extends StatelessWidget {
+  const _SonGirisPlaceholder({required this.index});
+
+  final int index;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
+    final placeholders = [
+      ('🤿', 'Dalış', '12 Mart', 'Sığ su, 8m...'),
+      ('📚', 'Kitap', '11 Mart', 'Bölüm 3\'ü bitirdim...'),
+      ('🎾', 'Tenis', '10 Mart', 'Maç 6-4, 6-3...'),
+    ];
+    final (emoji, title, date, preview) = placeholders[index];
+
     return Container(
-      width: 34,
-      height: 34,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const SweepGradient(
-          colors: [
-            Color(0xFFD4956A),
-            Color(0xFFA0B8D0),
-            Color(0xFF8EAAC0),
-            Color(0xFFC4AA88),
-            Color(0xFFD4956A),
-          ],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.7),
-          width: 1.5,
-        ),
+        color: AppColors.surface.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            offset: const Offset(0, 2),
-            blurRadius: 8,
+            color: Colors.black.withValues(alpha: 0.03),
+            offset: const Offset(0, 1),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 20)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.labelMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$date · $preview',
+                  style: theme.bodySmall?.copyWith(
+                    color: AppColors.textMuted(AppColors.textPrimary),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -490,59 +525,194 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-class _GlassPill extends StatelessWidget {
-  const _GlassPill({required this.child});
+// --- Quick entry bottom sheet (3 tabs: Surface / Dive / Detail) ---
 
-  final Widget child;
+class _QuickEntryBottomSheet extends StatefulWidget {
+  const _QuickEntryBottomSheet();
 
   @override
-  Widget build(BuildContext context) {
-    return _GlassContainer(
-      opacity: 0.2,
-      borderOpacity: 0.5,
-      borderRadius: 999,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      child: child,
-    );
-  }
+  State<_QuickEntryBottomSheet> createState() => _QuickEntryBottomSheetState();
 }
 
-class _GlassContainer extends StatelessWidget {
-  const _GlassContainer({
-    required this.child,
-    this.opacity = 0.2,
-    this.borderOpacity = 0.5,
-    this.borderRadius = 20,
-    this.padding,
-  });
+class _QuickEntryBottomSheetState extends State<_QuickEntryBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
-  final Widget child;
-  final double opacity;
-  final double borderOpacity;
-  final double borderRadius;
-  final EdgeInsetsGeometry? padding;
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-        child: Container(
-          padding: padding ?? EdgeInsets.zero,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: opacity),
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: borderOpacity),
-              width: 0.8,
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            offset: const Offset(0, -2),
+            blurRadius: 20,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            labelColor: AppColors.textPrimary,
+            unselectedLabelColor: AppColors.textMuted(AppColors.textPrimary),
+            indicatorColor: AppColors.accent,
+            indicatorWeight: 3,
+            labelStyle: Theme.of(context).textTheme.labelLarge,
+            tabs: const [
+              Tab(text: 'Surface'),
+              Tab(text: 'Dive'),
+              Tab(text: 'Detail'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [_SurfaceTab(), _DiveTab(), _DetailTab()],
             ),
           ),
-          child: child,
-        ),
+        ],
       ),
     );
   }
 }
 
+class _SurfaceTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Şu an ne düşünüyorsun?',
+              hintStyle: TextStyle(
+                color: AppColors.textMuted(AppColors.textPrimary),
+              ),
+              filled: true,
+              fillColor: AppColors.background.withValues(alpha: 0.3),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: AppColors.surface,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
+class _DiveTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            maxLines: 5,
+            decoration: InputDecoration(
+              hintText: 'Daha derin bir not...',
+              hintStyle: TextStyle(
+                color: AppColors.textMuted(AppColors.textPrimary),
+              ),
+              filled: true,
+              fillColor: AppColors.background.withValues(alpha: 0.3),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Ruh hali',
+            style: theme.labelMedium?.copyWith(
+              color: AppColors.textMuted(AppColors.textPrimary),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: ['😊', '😌', '🤔', '😔', '🔥']
+                .map(
+                  (e) => GestureDetector(
+                    onTap: () {},
+                    child: Text(e, style: const TextStyle(fontSize: 28)),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.photo_library_outlined, size: 20),
+            label: const Text('Fotoğraf ekle'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              side: BorderSide(
+                color: AppColors.textMuted(AppColors.textPrimary),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          'Şablon seçerek detaylı giriş yapabilirsin.\n(Şablon seçici burada açılacak)',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.textMuted(AppColors.textPrimary),
+          ),
+        ),
+      ),
+    );
+  }
+}
