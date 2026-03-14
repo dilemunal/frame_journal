@@ -1,7 +1,9 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/database/app_database.dart';
 import '../../../core/di/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/application/auth_notifier.dart';
@@ -79,7 +81,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const _QuickEntryBottomSheet(),
+      builder: (context) => _QuickEntryBottomSheet(
+        onSaved: () => ref.invalidate(recentEntriesProvider),
+      ),
     );
   }
 }
@@ -431,12 +435,13 @@ class _TemplateChip extends StatelessWidget {
   }
 }
 
-class _SonGirislerSection extends StatelessWidget {
+class _SonGirislerSection extends ConsumerWidget {
   const _SonGirislerSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context).textTheme;
+    final recentAsync = ref.watch(recentEntriesProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -451,16 +456,133 @@ class _SonGirislerSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 3,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) => _SonGirisPlaceholder(index: index),
+        recentAsync.when(
+          data: (list) {
+            if (list.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Henüz giriş yok. "Bugünü kaydet" ile başla.',
+                  style: theme.bodySmall?.copyWith(
+                    color: AppColors.textMuted(AppColors.textPrimary),
+                  ),
+                ),
+              );
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: list.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final (entry, template) = list[i];
+                return _SonGirisCard(entry: entry, template: template);
+              },
+            );
+          },
+          loading: () => ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 3,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, index) => _SonGirisPlaceholder(index: index),
+          ),
+          error: (_, __) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Girişler yüklenemedi.',
+              style: theme.bodySmall?.copyWith(
+                color: AppColors.textMuted(AppColors.textPrimary),
+              ),
+            ),
+          ),
         ),
       ],
     );
+  }
+}
+
+class _SonGirisCard extends StatelessWidget {
+  const _SonGirisCard({required this.entry, this.template});
+
+  final AppEntry entry;
+  final JournalTemplate? template;
+
+  static String _preview(String? freeText, String? title) {
+    final raw = freeText ?? title ?? '';
+    if (raw.isEmpty) return '—';
+    return raw.length > 35 ? '${raw.substring(0, 35)}...' : raw;
+  }
+
+  static String _dateStr(DateTime d) {
+    const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    return '${d.day} ${months[d.month - 1]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
+    final title = template?.name ?? 'Giriş';
+    final emoji = template?.icon ?? '📝';
+    final color = template != null ? _parseColor(template!.color) : null;
+    final date = _dateStr(entry.createdAt);
+    final preview = _preview(entry.freeText, entry.title);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color != null ? color.withValues(alpha: 0.15) : AppColors.surface.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(14),
+        border: color != null ? Border(left: BorderSide(color: color, width: 3)) : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            offset: const Offset(0, 1),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 20)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.labelMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$date · $preview',
+                  style: theme.bodySmall?.copyWith(
+                    color: AppColors.textMuted(AppColors.textPrimary),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Color? _parseColor(String hex) {
+    if (hex.length != 7 || !hex.startsWith('#')) return null;
+    final r = int.tryParse(hex.substring(1, 3), radix: 16);
+    final g = int.tryParse(hex.substring(3, 5), radix: 16);
+    final b = int.tryParse(hex.substring(5, 7), radix: 16);
+    if (r == null || g == null || b == null) return null;
+    return Color.fromARGB(255, r, g, b);
   }
 }
 
@@ -527,14 +649,17 @@ class _SonGirisPlaceholder extends StatelessWidget {
 
 // --- Quick entry bottom sheet (3 tabs: Surface / Dive / Detail) ---
 
-class _QuickEntryBottomSheet extends StatefulWidget {
-  const _QuickEntryBottomSheet();
+class _QuickEntryBottomSheet extends ConsumerStatefulWidget {
+  const _QuickEntryBottomSheet({required this.onSaved});
+
+  final VoidCallback onSaved;
 
   @override
-  State<_QuickEntryBottomSheet> createState() => _QuickEntryBottomSheetState();
+  ConsumerState<_QuickEntryBottomSheet> createState() =>
+      _QuickEntryBottomSheetState();
 }
 
-class _QuickEntryBottomSheetState extends State<_QuickEntryBottomSheet>
+class _QuickEntryBottomSheetState extends ConsumerState<_QuickEntryBottomSheet>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -548,6 +673,22 @@ class _QuickEntryBottomSheetState extends State<_QuickEntryBottomSheet>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveEntry({String? freeText, String? mood}) async {
+    final text = (freeText ?? '').trim();
+    if (text.isEmpty) return;
+    final db = ref.read(appDatabaseProvider);
+    await db.into(db.appEntries).insert(
+          AppEntriesCompanion.insert(
+            userId: kLocalUserId,
+            freeText: Value(text),
+            mood: mood != null && mood.isNotEmpty ? Value(mood) : const Value.absent(),
+            createdAt: DateTime.now(),
+          ),
+        );
+    widget.onSaved();
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -583,7 +724,11 @@ class _QuickEntryBottomSheetState extends State<_QuickEntryBottomSheet>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [_SurfaceTab(), _DiveTab(), _DetailTab()],
+              children: [
+                _SurfaceTab(onSave: (text) => _saveEntry(freeText: text)),
+                _DiveTab(onSave: (text, mood) => _saveEntry(freeText: text, mood: mood)),
+                _DetailTab(),
+              ],
             ),
           ),
         ],
@@ -592,7 +737,24 @@ class _QuickEntryBottomSheetState extends State<_QuickEntryBottomSheet>
   }
 }
 
-class _SurfaceTab extends StatelessWidget {
+class _SurfaceTab extends StatefulWidget {
+  const _SurfaceTab({required this.onSave});
+
+  final void Function(String text) onSave;
+
+  @override
+  State<_SurfaceTab> createState() => _SurfaceTabState();
+}
+
+class _SurfaceTabState extends State<_SurfaceTab> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -601,6 +763,7 @@ class _SurfaceTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
+            controller: _controller,
             maxLines: 3,
             decoration: InputDecoration(
               hintText: 'Şu an ne düşünüyorsun?',
@@ -617,7 +780,7 @@ class _SurfaceTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => widget.onSave(_controller.text),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.accent,
               foregroundColor: AppColors.surface,
@@ -634,16 +797,36 @@ class _SurfaceTab extends StatelessWidget {
   }
 }
 
-class _DiveTab extends StatelessWidget {
+class _DiveTab extends StatefulWidget {
+  const _DiveTab({required this.onSave});
+
+  final void Function(String text, String? mood) onSave;
+
+  @override
+  State<_DiveTab> createState() => _DiveTabState();
+}
+
+class _DiveTabState extends State<_DiveTab> {
+  final _controller = TextEditingController();
+  String? _selectedMood;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
+    const moods = ['😊', '😌', '🤔', '😔', '🔥'];
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
+            controller: _controller,
             maxLines: 5,
             decoration: InputDecoration(
               hintText: 'Daha derin bir not...',
@@ -668,11 +851,20 @@ class _DiveTab extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: ['😊', '😌', '🤔', '😔', '🔥']
+            children: moods
                 .map(
                   (e) => GestureDetector(
-                    onTap: () {},
-                    child: Text(e, style: const TextStyle(fontSize: 28)),
+                    onTap: () => setState(() => _selectedMood = e),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: _selectedMood == e
+                          ? BoxDecoration(
+                              color: AppColors.accent.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            )
+                          : null,
+                      child: Text(e, style: const TextStyle(fontSize: 28)),
+                    ),
                   ),
                 )
                 .toList(),
@@ -692,6 +884,19 @@ class _DiveTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () => widget.onSave(_controller.text, _selectedMood),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: AppColors.surface,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text('Kaydet'),
           ),
         ],
       ),
