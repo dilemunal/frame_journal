@@ -77,25 +77,28 @@ class _Body extends StatelessWidget {
             onPressed: () => context.pop(),
             icon: const Icon(Icons.arrow_back_rounded),
           ),
-          flexibleSpace: FlexibleSpaceBar(
-            titlePadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            title: Row(
-              children: [
-                Text(icon, style: const TextStyle(fontSize: 24)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
+          flexibleSpace: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(icon, style: const TextStyle(fontSize: 36)),
+                  const SizedBox(height: 4),
+                  Text(
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w300,
                       color: Colors.white,
-                      fontSize: 24,
+                      fontSize: 28,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -115,7 +118,7 @@ class _Body extends StatelessWidget {
                       _metaPill('📍 ${loc['name']}'),
                     if ((weather['temp'] ?? '').toString().isNotEmpty)
                       _metaPill(
-                        '${weather['emoji'] ?? '🌤️'} ${weather['temp']}°C ${weather['condition'] ?? ''}',
+                        '${weather['emoji'] ?? '🌤️'} ${weather['temp']}°C',
                       ),
                   ],
                 )
@@ -155,7 +158,7 @@ class _Body extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.15),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(

@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -37,7 +38,7 @@ class HomeScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _TopBar(firstName: firstName),
+                        _TopBar(firstName: firstName, email: auth.email),
                         const SizedBox(height: 14),
                         _WeekStrip(now: now),
                         const SizedBox(height: 24),
@@ -86,12 +87,13 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.firstName});
+class _TopBar extends ConsumerWidget {
+  const _TopBar({required this.firstName, required this.email});
   final String firstName;
+  final String? email;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final subtitle =
         firstName.isEmpty ? 'Merhaba' : 'Merhaba, $firstName';
     return Row(
@@ -105,21 +107,72 @@ class _TopBar extends StatelessWidget {
             ),
           ),
         ),
-        ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.glassFill12,
-                border: Border.all(color: AppColors.glassBorder),
+        GestureDetector(
+          onTap: () => _showProfileSheet(context, ref),
+          child: ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.glassFill12,
+                  border: Border.all(color: AppColors.glassBorder),
+                ),
+                child: Icon(Icons.person, color: Colors.white.withValues(alpha: 0.9)),
               ),
-              child: Icon(Icons.person, color: Colors.white.withValues(alpha: 0.9)),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _showProfileSheet(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 22),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    email ?? 'Bilinmeyen hesap',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red.withValues(alpha: 0.6),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () async {
+                      await ref.read(authNotifierProvider.notifier).logout();
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    },
+                    child: const Text('Çıkış Yap'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -367,6 +420,13 @@ class _RecentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tint = _parseHexColor(template?.color ?? '');
+    final freeText = (entry.freeText ?? '').trim();
+    final title = template?.name ??
+        ((entry.mood ?? '').isNotEmpty
+            ? '${entry.mood} ${_timeStr(entry.createdAt)}'
+            : (freeText.isNotEmpty
+                ? freeText.substring(0, math.min(freeText.length, 20))
+                : 'Giriş'));
     final preview = (entry.freeText ?? entry.title ?? '').trim();
     final text = preview.isEmpty
         ? '—'
@@ -394,7 +454,7 @@ class _RecentCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    template?.name ?? 'Giriş',
+                    title,
                     style: TextStyle(
                       color: AppColors.textOnGlassPrimary,
                       fontWeight: FontWeight.w600,
@@ -436,6 +496,9 @@ Color? _parseHexColor(String hex) {
   if (r == null || g == null || b == null) return null;
   return Color.fromARGB(255, r, g, b);
 }
+
+String _timeStr(DateTime d) =>
+    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
 String _formatDateTr(DateTime d) {
   const months = [

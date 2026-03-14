@@ -154,6 +154,10 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
 
   String get _freeText => _textController.text.trim();
 
+  void _toggleFocusMode() {
+    setState(() => _isFocusMode = !_isFocusMode);
+  }
+
   Future<void> _pickPhoto() async {
     try {
       final picker = ImagePicker();
@@ -387,6 +391,16 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                     ],
                   ),
             actions: [
+              IconButton(
+                tooltip: _isFocusMode ? 'Odaktan cik' : 'Odak modu',
+                onPressed: _toggleFocusMode,
+                icon: Icon(
+                  _isFocusMode
+                      ? Icons.center_focus_weak_rounded
+                      : Icons.center_focus_strong_rounded,
+                  color: Colors.white,
+                ),
+              ),
               TextButton(
                 onPressed: _saveEntry,
                 child: const Text(
@@ -474,11 +488,14 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                                     style: TextStyle(
                                       color: Colors.white.withValues(alpha: 0.9),
                                     ),
+                                    cursorColor: Colors.white.withValues(alpha: 0.7),
                                     decoration: InputDecoration(
                                       hintText: 'Cevabını yaz...',
                                       hintStyle: TextStyle(
                                         color: Colors.white.withValues(alpha: 0.4),
                                       ),
+                                      filled: true,
+                                      fillColor: Colors.white.withValues(alpha: 0.05),
                                       border: InputBorder.none,
                                     ),
                                     maxLines: null,

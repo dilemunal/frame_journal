@@ -1,7 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../../../core/data/prompt_questions.dart';
-import '../../../../core/theme/app_theme.dart';
 
 /// Sağ alt köşede 🎲 butonu; basınca yeni soru alır, soru seçilince callback.
 class PromptDiceButton extends StatelessWidget {
@@ -22,19 +22,25 @@ class PromptDiceButton extends StatelessWidget {
           onPromptSelected(q);
         },
         customBorder: const CircleBorder(),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.textPrimary.withValues(alpha: 0.25),
-              width: 1,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 0.5,
+                ),
+                color: Colors.white.withValues(alpha: 0.15),
+              ),
+              child: const Center(
+                child: Text('🎲', style: TextStyle(fontSize: 18)),
+              ),
             ),
-            color: AppColors.surface.withValues(alpha: 0.9),
-          ),
-          child: const Center(
-            child: Text('🎲', style: TextStyle(fontSize: 18)),
           ),
         ),
       ),

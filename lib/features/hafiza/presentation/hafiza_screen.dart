@@ -91,13 +91,13 @@ class HafizaScreen extends ConsumerWidget {
                         )
                             .animate()
                             .fadeIn(
-                              delay: Duration(milliseconds: 70 * index),
+                              delay: Duration(milliseconds: 60 * index),
                               duration: 280.ms,
                             )
                             .slideY(
                               begin: 0.08,
                               end: 0,
-                              delay: Duration(milliseconds: 70 * index),
+                              delay: Duration(milliseconds: 60 * index),
                               duration: 280.ms,
                             ),
                       );
@@ -140,46 +140,74 @@ class _Card extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: tint != null
-                  ? tint.withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(16),
-              border: Border(
-                left: tint != null
-                    ? BorderSide(color: tint, width: 3)
-                    : BorderSide(color: Colors.white.withValues(alpha: 0.2), width: 0.5),
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                decoration: BoxDecoration(
+                  color: tint != null
+                      ? tint.withValues(alpha: 0.15)
+                      : Colors.white.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            template?.name ?? 'Giriş',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _date(entry.createdAt),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: Colors.white.withValues(alpha: 0.3),
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      text,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.60),
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  template?.name ?? 'Giriş',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    fontWeight: FontWeight.w600,
+              if (tint != null)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 3,
+                    color: tint,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  text,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.60),
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _date(entry.createdAt),
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.40)),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
       ),

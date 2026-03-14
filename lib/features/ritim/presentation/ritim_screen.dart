@@ -124,47 +124,69 @@ class _RhythmCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: completed
-                  ? Colors.white.withValues(alpha: 0.22)
-                  : Colors.white.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: completed ? 0.24 : 0.13),
-                  ),
-                  child: Icon(
-                    completed ? Icons.check_rounded : _iconFor(slotKey),
-                    color: Colors.white.withValues(alpha: completed ? 0.95 : 0.50),
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: completed
+                      ? Colors.white.withValues(alpha: 0.20)
+                      : Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    width: 0.5,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: completed ? 0.95 : 0.75),
-                      fontWeight: FontWeight.w600,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: completed ? 0.26 : 0.12),
+                      ),
+                      child: Icon(
+                        completed ? Icons.check_rounded : _iconFor(slotKey),
+                        color: Colors.white.withValues(alpha: completed ? 0.95 : 0.40),
+                      ),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: completed
+                              ? Colors.white.withValues(alpha: 0.5)
+                              : Colors.white,
+                          fontWeight: FontWeight.w600,
+                          decoration: completed ? TextDecoration.lineThrough : null,
+                          decorationColor: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                    Checkbox(
+                      value: completed,
+                      onChanged: (_) => onToggle(),
+                      activeColor: Colors.white,
+                      checkColor: const Color(0xFF2A2A2A),
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.30)),
+                    ),
+                  ],
+                ),
+              ),
+              if (completed)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 2,
+                    color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ),
-                Checkbox(
-                  value: completed,
-                  onChanged: (_) => onToggle(),
-                  activeColor: Colors.white,
-                  checkColor: const Color(0xFF2A2A2A),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
       ),

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/di/core_providers.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../entry/presentation/widgets/glass_card.dart';
 
 class TemplateBuilderScreen extends ConsumerStatefulWidget {
   const TemplateBuilderScreen({super.key});
@@ -19,7 +21,7 @@ class TemplateBuilderScreen extends ConsumerStatefulWidget {
 class _TemplateBuilderScreenState extends ConsumerState<TemplateBuilderScreen> {
   final _nameController = TextEditingController();
   String _emoji = '📝';
-  String _color = '#8FA5BA';
+  final String _color = '#8FA5BA';
   final List<_FieldEdit> _fields = [];
   static const _fieldTypes = [
     'text',
@@ -83,113 +85,153 @@ class _TemplateBuilderScreenState extends ConsumerState<TemplateBuilderScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
         backgroundColor: Colors.transparent,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Yeni şablon',
-          style: theme.titleMedium?.copyWith(color: AppColors.textPrimary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('Kaydet'),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          systemOverlayStyle: SystemUiOverlayStyle.light,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => context.pop(),
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Şablon adı',
-                hintText: 'Örn. Okuma günlüğü',
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+          title: Text(
+            'Yeni şablon',
+            style: theme.titleMedium?.copyWith(color: Colors.white),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                 ),
+                onPressed: _save,
+                child: const Text('Kaydet'),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Text('İkon (emoji)', style: theme.labelMedium),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: () => _pickEmoji(context),
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(_emoji, style: const TextStyle(fontSize: 28)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Alanlar', style: theme.titleSmall),
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _fields.add(_FieldEdit(
-                        label: '',
-                        fieldType: 'text',
-                        isRequired: false,
-                      ));
-                    });
-                  },
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Alan ekle'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _fields.length,
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  final item = _fields.removeAt(oldIndex);
-                  if (newIndex > oldIndex) newIndex--;
-                  _fields.insert(newIndex, item);
-                });
-              },
-              itemBuilder: (context, index) {
-                final f = _fields[index];
-                return _FieldTile(
-                  key: ValueKey('${f.label}$index'),
-                  index: index,
-                  field: f,
-                  fieldTypes: _fieldTypes,
-                  onChanged: (updated) {
-                    setState(() => _fields[index] = updated);
-                  },
-                  onRemove: () => setState(() => _fields.removeAt(index)),
-                );
-              },
             ),
           ],
         ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _nameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: _glassInputDecoration(
+                  labelText: 'Şablon adı',
+                  hintText: 'Orn. Okuma gunlugu',
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text(
+                    'İkon (emoji)',
+                    style: theme.labelMedium?.copyWith(color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () => _pickEmoji(context),
+                    child: GlassCard(
+                      padding: EdgeInsets.zero,
+                      borderRadius: 999,
+                      opacity: 0.12,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Center(
+                          child: Text(_emoji, style: const TextStyle(fontSize: 28)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Alanlar',
+                    style: theme.titleSmall?.copyWith(color: Colors.white),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _fields.add(_FieldEdit(
+                          label: '',
+                          fieldType: 'text',
+                          isRequired: false,
+                        ));
+                      });
+                    },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Alan ekle'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _fields.length,
+                onReorder: (oldIndex, newIndex) {
+                  setState(() {
+                    final item = _fields.removeAt(oldIndex);
+                    if (newIndex > oldIndex) newIndex--;
+                    _fields.insert(newIndex, item);
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final f = _fields[index];
+                  return _FieldTile(
+                    key: ValueKey('${f.label}$index'),
+                    index: index,
+                    field: f,
+                    fieldTypes: _fieldTypes,
+                    onChanged: (updated) {
+                      setState(() => _fields[index] = updated);
+                    },
+                    onRemove: () => setState(() => _fields.removeAt(index)),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _glassInputDecoration({
+    required String labelText,
+    String? hintText,
+  }) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+    );
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.1),
+      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+      enabledBorder: border,
+      focusedBorder: border.copyWith(
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
       ),
     );
   }
@@ -198,22 +240,45 @@ class _TemplateBuilderScreenState extends ConsumerState<TemplateBuilderScreen> {
     final emojis = ['📝', '🤿', '🎾', '📚', '🏃', '🎬', '✈️', '🏋️', '🧘', '💧', '🌿', '✍️'];
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: emojis.map((e) => GestureDetector(
-            onTap: () {
-              setState(() => _emoji = e);
-              Navigator.pop(ctx);
-            },
-            child: Text(e, style: const TextStyle(fontSize: 32)),
-          )).toList(),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: emojis
+                  .map(
+                    (e) => GestureDetector(
+                      onTap: () {
+                        setState(() => _emoji = e);
+                        Navigator.pop(ctx);
+                      },
+                      child: GlassCard(
+                        padding: EdgeInsets.zero,
+                        borderRadius: 999,
+                        opacity: 0.12,
+                        child: SizedBox(
+                          width: 54,
+                          height: 54,
+                          child: Center(
+                            child: Text(e, style: const TextStyle(fontSize: 30)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
         ),
       ),
     );
@@ -282,19 +347,24 @@ class _FieldTileState extends State<_FieldTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
     final field = widget.field;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      color: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      opacity: 0.10,
+      borderRadius: 14,
       child: ListTile(
         leading: ReorderableDragStartListener(
           index: widget.index,
-          child: Icon(Icons.drag_handle, color: AppColors.textMuted(AppColors.textPrimary)),
+          child: Icon(Icons.drag_handle, color: Colors.white.withValues(alpha: 0.6)),
         ),
         title: TextField(
           controller: _labelController,
-          decoration: const InputDecoration(
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
             labelText: 'Etiket',
+            labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.1),
             isDense: true,
             border: InputBorder.none,
           ),
@@ -311,15 +381,20 @@ class _FieldTileState extends State<_FieldTile> {
             DropdownButton<String>(
               value: field.fieldType,
               isDense: true,
+              dropdownColor: const Color(0xFF253040),
+              style: const TextStyle(color: Colors.white),
+              iconEnabledColor: Colors.white.withValues(alpha: 0.9),
               items: widget.fieldTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
               onChanged: (v) {
-                if (v != null) widget.onChanged(_FieldEdit(
-                  label: _labelController.text,
-                  fieldType: v,
-                  options: field.options,
-                  unit: field.unit,
-                  isRequired: field.isRequired,
-                ));
+                if (v != null) {
+                  widget.onChanged(_FieldEdit(
+                    label: _labelController.text,
+                    fieldType: v,
+                    options: field.options,
+                    unit: field.unit,
+                    isRequired: field.isRequired,
+                  ));
+                }
               },
             ),
             const SizedBox(width: 8),
@@ -334,13 +409,21 @@ class _FieldTileState extends State<_FieldTile> {
                   unit: field.unit,
                   isRequired: v ?? false,
                 )),
+                activeColor: Colors.white,
+                checkColor: const Color(0xFF2A2A2A),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
               ),
             ),
-            Text('Zorunlu', style: theme.labelSmall),
+            Text(
+              'Zorunlu',
+              style: theme.labelSmall?.copyWith(
+                color: Colors.white.withValues(alpha: 0.75),
+              ),
+            ),
           ],
         ),
         trailing: IconButton(
-          icon: const Icon(Icons.remove_circle_outline),
+          icon: Icon(Icons.remove_circle_outline, color: Colors.white.withValues(alpha: 0.8)),
           onPressed: widget.onRemove,
         ),
       ),
