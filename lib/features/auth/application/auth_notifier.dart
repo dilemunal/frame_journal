@@ -57,11 +57,20 @@ class AuthNotifier extends Notifier<AuthState> {
       data: <String, dynamic>{'email': email, 'password': password},
     );
 
-    final data = response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : null;
+    final data = response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : null;
     if (data == null) throw Exception('Sunucu yanıtı geçersiz.');
-    final accessToken = _stringOrNull(data['accessToken']) ?? _stringOrNull(data['access_token']);
-    final refreshToken = _stringOrNull(data['refreshToken']) ?? _stringOrNull(data['refresh_token']);
-    if (accessToken == null || accessToken.isEmpty || refreshToken == null || refreshToken.isEmpty) {
+    final accessToken =
+        _stringOrNull(data['accessToken']) ??
+        _stringOrNull(data['access_token']);
+    final refreshToken =
+        _stringOrNull(data['refreshToken']) ??
+        _stringOrNull(data['refresh_token']);
+    if (accessToken == null ||
+        accessToken.isEmpty ||
+        refreshToken == null ||
+        refreshToken.isEmpty) {
       throw Exception('Sunucu token döndürmedi.');
     }
 
@@ -76,7 +85,8 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> loginWithGoogle() async {
     final serverClientId = const String.fromEnvironment(
       'GOOGLE_SERVER_CLIENT_ID',
-      defaultValue: '325203630340-lcgk3b43a4sbvdl10ud1ra2l38j6ar34.apps.googleusercontent.com',
+      defaultValue:
+          '325203630340-2i6816d9hg3nj445cjitdtbflrt5oi06.apps.googleusercontent.com',
     );
     final googleSignIn = GoogleSignIn(serverClientId: serverClientId);
     // Önbelleklenmiş token bazen sadece iOS client audience ile gelir; yeni token için önce sessiz signOut.
@@ -98,11 +108,20 @@ class AuthNotifier extends Notifier<AuthState> {
         data: <String, dynamic>{'idToken': idToken},
       );
 
-      final data = response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : null;
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : null;
       if (data == null) throw Exception('Sunucu yanıtı geçersiz.');
-      final accessToken = _stringOrNull(data['accessToken']) ?? _stringOrNull(data['access_token']);
-      final refreshToken = _stringOrNull(data['refreshToken']) ?? _stringOrNull(data['refresh_token']);
-      if (accessToken == null || accessToken.isEmpty || refreshToken == null || refreshToken.isEmpty) {
+      final accessToken =
+          _stringOrNull(data['accessToken']) ??
+          _stringOrNull(data['access_token']);
+      final refreshToken =
+          _stringOrNull(data['refreshToken']) ??
+          _stringOrNull(data['refresh_token']);
+      if (accessToken == null ||
+          accessToken.isEmpty ||
+          refreshToken == null ||
+          refreshToken.isEmpty) {
         throw Exception('Sunucu token döndürmedi. Lütfen tekrar deneyin.');
       }
 
@@ -114,7 +133,9 @@ class AuthNotifier extends Notifier<AuthState> {
       state = AuthState(isAuthenticated: true, email: googleUser.email);
       assert(() {
         // ignore: avoid_print
-        print('[AuthNotifier] Google login OK, state.isAuthenticated=${state.isAuthenticated}');
+        print(
+          '[AuthNotifier] Google login OK, state.isAuthenticated=${state.isAuthenticated}',
+        );
         return true;
       }());
     } catch (e, st) {
@@ -132,11 +153,20 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> loginWithApple() async {
     final response = await _apiClient.post('/api/auth/apple-login');
-    final data = response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : null;
+    final data = response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : null;
     if (data == null) throw Exception('Sunucu yanıtı geçersiz.');
-    final accessToken = _stringOrNull(data['accessToken']) ?? _stringOrNull(data['access_token']);
-    final refreshToken = _stringOrNull(data['refreshToken']) ?? _stringOrNull(data['refresh_token']);
-    if (accessToken == null || accessToken.isEmpty || refreshToken == null || refreshToken.isEmpty) {
+    final accessToken =
+        _stringOrNull(data['accessToken']) ??
+        _stringOrNull(data['access_token']);
+    final refreshToken =
+        _stringOrNull(data['refreshToken']) ??
+        _stringOrNull(data['refresh_token']);
+    if (accessToken == null ||
+        accessToken.isEmpty ||
+        refreshToken == null ||
+        refreshToken.isEmpty) {
       throw Exception('Sunucu token döndürmedi.');
     }
 
