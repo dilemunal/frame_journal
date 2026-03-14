@@ -33,32 +33,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             final anCardHeight = constraints.maxHeight * 0.35;
             return SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _TopBar(firstName: firstName),
-                      SizedBox(height: constraints.maxHeight * 0.02),
-                      _AnCard(
-                        height: anCardHeight,
-                        hour: hour,
-                        date: now,
-                        showWeather: false,
-                      ),
-                      SizedBox(height: constraints.maxHeight * 0.03),
-                      _QuickEntryButton(
-                        onTap: () => _openQuickEntrySheet(context),
-                      ),
-                      SizedBox(height: constraints.maxHeight * 0.035),
-                      const _TemplateCardsSection(),
-                      SizedBox(height: constraints.maxHeight * 0.025),
-                      const _SonGirislerSection(),
-                      const SizedBox(height: 24),
-                    ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _TopBar(firstName: firstName),
+                  SizedBox(height: constraints.maxHeight * 0.02),
+                  _AnCard(
+                    height: anCardHeight,
+                    hour: hour,
+                    date: now,
+                    showWeather: false,
                   ),
-                ),
+                  SizedBox(height: constraints.maxHeight * 0.03),
+                  _QuickEntryButton(
+                    onTap: () => _openQuickEntrySheet(context),
+                  ),
+                  SizedBox(height: constraints.maxHeight * 0.035),
+                  const _TemplateCardsSection(),
+                  SizedBox(height: constraints.maxHeight * 0.025),
+                  const _SonGirislerSection(),
+                  const SizedBox(height: 24),
+                ],
               ),
             );
           },
@@ -82,7 +77,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _QuickEntryBottomSheet(
-        onSaved: () => ref.invalidate(recentEntriesProvider),
+        onSaved: () {
+          ref.invalidate(recentEntriesProvider);
+          ref.invalidate(memoryEntriesProvider);
+        },
       ),
     );
   }
@@ -477,7 +475,11 @@ class _SonGirislerSection extends ConsumerWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final (entry, template) = list[i];
-                return _SonGirisCard(entry: entry, template: template);
+                return _SonGirisCard(
+                  entry: entry,
+                  template: template,
+                  onTap: () => context.push('/entry/${entry.id}'),
+                );
               },
             );
           },
@@ -505,10 +507,15 @@ class _SonGirislerSection extends ConsumerWidget {
 }
 
 class _SonGirisCard extends StatelessWidget {
-  const _SonGirisCard({required this.entry, this.template});
+  const _SonGirisCard({
+    required this.entry,
+    this.template,
+    this.onTap,
+  });
 
   final AppEntry entry;
   final JournalTemplate? template;
+  final VoidCallback? onTap;
 
   static String _preview(String? freeText, String? title) {
     final raw = freeText ?? title ?? '';
@@ -530,48 +537,55 @@ class _SonGirisCard extends StatelessWidget {
     final date = _dateStr(entry.createdAt);
     final preview = _preview(entry.freeText, entry.title);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color != null ? color.withValues(alpha: 0.15) : AppColors.surface.withValues(alpha: 0.85),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: color != null ? Border(left: BorderSide(color: color, width: 3)) : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            offset: const Offset(0, 1),
-            blurRadius: 6,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color != null ? color.withValues(alpha: 0.15) : AppColors.surface.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(14),
+            border: color != null ? Border(left: BorderSide(color: color, width: 3)) : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                offset: const Offset(0, 1),
+                blurRadius: 6,
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.labelMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
+          child: Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.labelMedium?.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$date · $preview',
+                      style: theme.bodySmall?.copyWith(
+                        color: AppColors.textMuted(AppColors.textPrimary),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '$date · $preview',
-                  style: theme.bodySmall?.copyWith(
-                    color: AppColors.textMuted(AppColors.textPrimary),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

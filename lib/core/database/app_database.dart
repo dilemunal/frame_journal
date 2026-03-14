@@ -123,6 +123,14 @@ class AppEntries extends Table {
   DateTimeColumn get createdAt => dateTime()();
 }
 
+/// Günlük ritim tamamlanma kaydı (Ritim ekranı). localDate: YYYY-MM-DD, slotKey: morning|noon|evening
+class RhythmCompletions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get localDate => text().named('local_date')();
+  TextColumn get slotKey => text().named('slot_key')();
+  DateTimeColumn get completedAt => dateTime().named('completed_at')();
+}
+
 @DriftDatabase(
   tables: [
     JournalEntries,
@@ -133,6 +141,7 @@ class AppEntries extends Table {
     JournalTemplates,
     TemplateFields,
     AppEntries,
+    RhythmCompletions,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -140,7 +149,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'journal'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -149,6 +158,9 @@ class AppDatabase extends _$AppDatabase {
             await migrator.createTable(journalTemplates);
             await migrator.createTable(templateFields);
             await migrator.createTable(appEntries);
+          }
+          if (from < 3) {
+            await migrator.createTable(rhythmCompletions);
           }
         },
       );

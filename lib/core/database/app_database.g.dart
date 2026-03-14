@@ -3278,6 +3278,312 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
   }
 }
 
+class $RhythmCompletionsTable extends RhythmCompletions
+    with TableInfo<$RhythmCompletionsTable, RhythmCompletion> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RhythmCompletionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _localDateMeta = const VerificationMeta(
+    'localDate',
+  );
+  @override
+  late final GeneratedColumn<String> localDate = GeneratedColumn<String>(
+    'local_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _slotKeyMeta = const VerificationMeta(
+    'slotKey',
+  );
+  @override
+  late final GeneratedColumn<String> slotKey = GeneratedColumn<String>(
+    'slot_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta(
+    'completedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> completedAt = GeneratedColumn<DateTime>(
+    'completed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, localDate, slotKey, completedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rhythm_completions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RhythmCompletion> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('local_date')) {
+      context.handle(
+        _localDateMeta,
+        localDate.isAcceptableOrUnknown(data['local_date']!, _localDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_localDateMeta);
+    }
+    if (data.containsKey('slot_key')) {
+      context.handle(
+        _slotKeyMeta,
+        slotKey.isAcceptableOrUnknown(data['slot_key']!, _slotKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_slotKeyMeta);
+    }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+        _completedAtMeta,
+        completedAt.isAcceptableOrUnknown(
+          data['completed_at']!,
+          _completedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_completedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RhythmCompletion map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RhythmCompletion(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      localDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_date'],
+      )!,
+      slotKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}slot_key'],
+      )!,
+      completedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}completed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RhythmCompletionsTable createAlias(String alias) {
+    return $RhythmCompletionsTable(attachedDatabase, alias);
+  }
+}
+
+class RhythmCompletion extends DataClass
+    implements Insertable<RhythmCompletion> {
+  final int id;
+  final String localDate;
+  final String slotKey;
+  final DateTime completedAt;
+  const RhythmCompletion({
+    required this.id,
+    required this.localDate,
+    required this.slotKey,
+    required this.completedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['local_date'] = Variable<String>(localDate);
+    map['slot_key'] = Variable<String>(slotKey);
+    map['completed_at'] = Variable<DateTime>(completedAt);
+    return map;
+  }
+
+  RhythmCompletionsCompanion toCompanion(bool nullToAbsent) {
+    return RhythmCompletionsCompanion(
+      id: Value(id),
+      localDate: Value(localDate),
+      slotKey: Value(slotKey),
+      completedAt: Value(completedAt),
+    );
+  }
+
+  factory RhythmCompletion.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RhythmCompletion(
+      id: serializer.fromJson<int>(json['id']),
+      localDate: serializer.fromJson<String>(json['localDate']),
+      slotKey: serializer.fromJson<String>(json['slotKey']),
+      completedAt: serializer.fromJson<DateTime>(json['completedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'localDate': serializer.toJson<String>(localDate),
+      'slotKey': serializer.toJson<String>(slotKey),
+      'completedAt': serializer.toJson<DateTime>(completedAt),
+    };
+  }
+
+  RhythmCompletion copyWith({
+    int? id,
+    String? localDate,
+    String? slotKey,
+    DateTime? completedAt,
+  }) => RhythmCompletion(
+    id: id ?? this.id,
+    localDate: localDate ?? this.localDate,
+    slotKey: slotKey ?? this.slotKey,
+    completedAt: completedAt ?? this.completedAt,
+  );
+  RhythmCompletion copyWithCompanion(RhythmCompletionsCompanion data) {
+    return RhythmCompletion(
+      id: data.id.present ? data.id.value : this.id,
+      localDate: data.localDate.present ? data.localDate.value : this.localDate,
+      slotKey: data.slotKey.present ? data.slotKey.value : this.slotKey,
+      completedAt: data.completedAt.present
+          ? data.completedAt.value
+          : this.completedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RhythmCompletion(')
+          ..write('id: $id, ')
+          ..write('localDate: $localDate, ')
+          ..write('slotKey: $slotKey, ')
+          ..write('completedAt: $completedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, localDate, slotKey, completedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RhythmCompletion &&
+          other.id == this.id &&
+          other.localDate == this.localDate &&
+          other.slotKey == this.slotKey &&
+          other.completedAt == this.completedAt);
+}
+
+class RhythmCompletionsCompanion extends UpdateCompanion<RhythmCompletion> {
+  final Value<int> id;
+  final Value<String> localDate;
+  final Value<String> slotKey;
+  final Value<DateTime> completedAt;
+  const RhythmCompletionsCompanion({
+    this.id = const Value.absent(),
+    this.localDate = const Value.absent(),
+    this.slotKey = const Value.absent(),
+    this.completedAt = const Value.absent(),
+  });
+  RhythmCompletionsCompanion.insert({
+    this.id = const Value.absent(),
+    required String localDate,
+    required String slotKey,
+    required DateTime completedAt,
+  }) : localDate = Value(localDate),
+       slotKey = Value(slotKey),
+       completedAt = Value(completedAt);
+  static Insertable<RhythmCompletion> custom({
+    Expression<int>? id,
+    Expression<String>? localDate,
+    Expression<String>? slotKey,
+    Expression<DateTime>? completedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (localDate != null) 'local_date': localDate,
+      if (slotKey != null) 'slot_key': slotKey,
+      if (completedAt != null) 'completed_at': completedAt,
+    });
+  }
+
+  RhythmCompletionsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? localDate,
+    Value<String>? slotKey,
+    Value<DateTime>? completedAt,
+  }) {
+    return RhythmCompletionsCompanion(
+      id: id ?? this.id,
+      localDate: localDate ?? this.localDate,
+      slotKey: slotKey ?? this.slotKey,
+      completedAt: completedAt ?? this.completedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (localDate.present) {
+      map['local_date'] = Variable<String>(localDate.value);
+    }
+    if (slotKey.present) {
+      map['slot_key'] = Variable<String>(slotKey.value);
+    }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<DateTime>(completedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RhythmCompletionsCompanion(')
+          ..write('id: $id, ')
+          ..write('localDate: $localDate, ')
+          ..write('slotKey: $slotKey, ')
+          ..write('completedAt: $completedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3292,6 +3598,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $TemplateFieldsTable templateFields = $TemplateFieldsTable(this);
   late final $AppEntriesTable appEntries = $AppEntriesTable(this);
+  late final $RhythmCompletionsTable rhythmCompletions =
+      $RhythmCompletionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3305,6 +3613,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     journalTemplates,
     templateFields,
     appEntries,
+    rhythmCompletions,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -6167,6 +6476,196 @@ typedef $$AppEntriesTableProcessedTableManager =
       AppEntry,
       PrefetchHooks Function({bool templateId})
     >;
+typedef $$RhythmCompletionsTableCreateCompanionBuilder =
+    RhythmCompletionsCompanion Function({
+      Value<int> id,
+      required String localDate,
+      required String slotKey,
+      required DateTime completedAt,
+    });
+typedef $$RhythmCompletionsTableUpdateCompanionBuilder =
+    RhythmCompletionsCompanion Function({
+      Value<int> id,
+      Value<String> localDate,
+      Value<String> slotKey,
+      Value<DateTime> completedAt,
+    });
+
+class $$RhythmCompletionsTableFilterComposer
+    extends Composer<_$AppDatabase, $RhythmCompletionsTable> {
+  $$RhythmCompletionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localDate => $composableBuilder(
+    column: $table.localDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get slotKey => $composableBuilder(
+    column: $table.slotKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RhythmCompletionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RhythmCompletionsTable> {
+  $$RhythmCompletionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localDate => $composableBuilder(
+    column: $table.localDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get slotKey => $composableBuilder(
+    column: $table.slotKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RhythmCompletionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RhythmCompletionsTable> {
+  $$RhythmCompletionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get localDate =>
+      $composableBuilder(column: $table.localDate, builder: (column) => column);
+
+  GeneratedColumn<String> get slotKey =>
+      $composableBuilder(column: $table.slotKey, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$RhythmCompletionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RhythmCompletionsTable,
+          RhythmCompletion,
+          $$RhythmCompletionsTableFilterComposer,
+          $$RhythmCompletionsTableOrderingComposer,
+          $$RhythmCompletionsTableAnnotationComposer,
+          $$RhythmCompletionsTableCreateCompanionBuilder,
+          $$RhythmCompletionsTableUpdateCompanionBuilder,
+          (
+            RhythmCompletion,
+            BaseReferences<
+              _$AppDatabase,
+              $RhythmCompletionsTable,
+              RhythmCompletion
+            >,
+          ),
+          RhythmCompletion,
+          PrefetchHooks Function()
+        > {
+  $$RhythmCompletionsTableTableManager(
+    _$AppDatabase db,
+    $RhythmCompletionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RhythmCompletionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RhythmCompletionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RhythmCompletionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> localDate = const Value.absent(),
+                Value<String> slotKey = const Value.absent(),
+                Value<DateTime> completedAt = const Value.absent(),
+              }) => RhythmCompletionsCompanion(
+                id: id,
+                localDate: localDate,
+                slotKey: slotKey,
+                completedAt: completedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String localDate,
+                required String slotKey,
+                required DateTime completedAt,
+              }) => RhythmCompletionsCompanion.insert(
+                id: id,
+                localDate: localDate,
+                slotKey: slotKey,
+                completedAt: completedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RhythmCompletionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RhythmCompletionsTable,
+      RhythmCompletion,
+      $$RhythmCompletionsTableFilterComposer,
+      $$RhythmCompletionsTableOrderingComposer,
+      $$RhythmCompletionsTableAnnotationComposer,
+      $$RhythmCompletionsTableCreateCompanionBuilder,
+      $$RhythmCompletionsTableUpdateCompanionBuilder,
+      (
+        RhythmCompletion,
+        BaseReferences<
+          _$AppDatabase,
+          $RhythmCompletionsTable,
+          RhythmCompletion
+        >,
+      ),
+      RhythmCompletion,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6186,4 +6685,6 @@ class $AppDatabaseManager {
       $$TemplateFieldsTableTableManager(_db, _db.templateFields);
   $$AppEntriesTableTableManager get appEntries =>
       $$AppEntriesTableTableManager(_db, _db.appEntries);
+  $$RhythmCompletionsTableTableManager get rhythmCompletions =>
+      $$RhythmCompletionsTableTableManager(_db, _db.rhythmCompletions);
 }
