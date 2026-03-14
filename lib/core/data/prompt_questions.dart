@@ -89,7 +89,13 @@ Future<void> _cleanOldPromptKeys(SharedPreferences prefs) async {
 class PromptQuestions {
   /// Bugün için henüz gösterilmemiş bir soru döner. Hepsi gösterildiyse null.
   static Future<String?> next() async {
-    final prefs = await SharedPreferences.getInstance();
+    SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {
+      final shuffled = _shuffledForDay(DateTime.now());
+      return shuffled.isNotEmpty ? shuffled.first : null;
+    }
     await _cleanOldPromptKeys(prefs);
     final key = _todayKey();
     final raw = prefs.getString(key);

@@ -43,6 +43,18 @@ GoRouter appRouter(Ref ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
+        path: '/entry/new',
+        name: 'entryNew',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final templateId = int.tryParse(state.uri.queryParameters['templateId'] ?? '');
+          return EntryScreen(
+            templateId:
+                (templateId != null && templateId > 0) ? templateId : null,
+          );
+        },
+      ),
+      GoRoute(
         path: '/entry/:id',
         name: 'entryDetail',
         parentNavigatorKey: _rootNavigatorKey,
@@ -54,18 +66,6 @@ GoRouter appRouter(Ref ref) {
             );
           }
           return EntryDetailScreen(entryId: id);
-        },
-      ),
-      GoRoute(
-        path: '/entry/new',
-        name: 'entryNew',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
-          final templateId = int.tryParse(state.uri.queryParameters['templateId'] ?? '');
-          return EntryScreen(
-          templateId:
-              (templateId != null && templateId > 0) ? templateId : null,
-        );
         },
       ),
       StatefulShellRoute.indexedStack(

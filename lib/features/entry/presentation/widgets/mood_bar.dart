@@ -66,65 +66,68 @@ class _MoodBarState extends State<MoodBar> {
                 _updateFromPosition(local, trackWidth, leftPad);
               }
             },
-            child: Row(
-              children: [
-                Text(
-                  '😴',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textMuted(AppColors.textPrimary),
+            child: SizedBox(
+              height: 24,
+              child: Row(
+                children: [
+                  Text(
+                    '😴',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textMuted(AppColors.textPrimary),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: 6,
-                        height: 2,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(1),
-                            gradient: const LinearGradient(
-                              colors: [_cold, _warm],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
+                  Expanded(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 6,
+                          height: 2,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(1),
+                              gradient: const LinearGradient(
+                                colors: [_cold, _warm],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        left: thumbX,
-                        top: 0,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: moodColorFromValue(widget.value),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
+                        Positioned(
+                          left: thumbX,
+                          top: 0,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: moodColorFromValue(widget.value),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Text(
-                  '🔥',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textMuted(AppColors.textPrimary),
+                  Text(
+                    '🔥',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textMuted(AppColors.textPrimary),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },

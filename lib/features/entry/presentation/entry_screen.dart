@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/database/app_database.dart';
@@ -12,6 +14,8 @@ import '../../../core/di/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../domain/entry_block.dart';
 import 'widgets/atmosphere_strip.dart';
+import 'widgets/audio_block_row.dart';
+import 'widgets/audio_record_button.dart';
 import 'widgets/mood_bar.dart' show MoodBar, moodEmoji;
 import 'widgets/prompt_dice_widget.dart';
 
@@ -29,6 +33,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     with WidgetsBindingObserver {
   final _textController = TextEditingController();
   final List<EntryBlock> _blocks = [TextBlock('')];
+  final List<String> _photoPaths = [];
   double _moodValue = 0.5;
   String? _currentPrompt;
   bool _isFocusMode = false;
@@ -62,38 +67,44 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   Future<void> _persistDraft() async {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      'draft_entry',
-      jsonEncode({
-        'text': text,
-        'moodValue': _moodValue,
-        'timestamp': DateTime.now().toIso8601String(),
-      }),
-    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'draft_entry',
+        jsonEncode({
+          'text': text,
+          'moodValue': _moodValue,
+          'timestamp': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (_) {}
   }
 
   Future<void> _clearDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('draft_entry');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('draft_entry');
+    } catch (_) {}
   }
 
   Future<void> _loadDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('draft_entry');
-    if (raw == null || !mounted) return;
     try {
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      final timestamp = DateTime.tryParse(data['timestamp'] as String? ?? '');
-      final text = data['text'] as String? ?? '';
-      final moodValue = (data['moodValue'] as num?)?.toDouble() ?? 0.5;
-      if (timestamp == null ||
-          DateTime.now().difference(timestamp).inHours >= 24 ||
-          text.length <= 10) {
-        return;
-      }
-      if (!mounted) return;
-      _showDraftRecoverySheet(text, moodValue);
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('draft_entry');
+      if (raw == null || !mounted) return;
+      try {
+        final data = jsonDecode(raw) as Map<String, dynamic>;
+        final timestamp = DateTime.tryParse(data['timestamp'] as String? ?? '');
+        final text = data['text'] as String? ?? '';
+        final moodValue = (data['moodValue'] as num?)?.toDouble() ?? 0.5;
+        if (timestamp == null ||
+            DateTime.now().difference(timestamp).inHours >= 24 ||
+            text.length <= 10) {
+          return;
+        }
+        if (!mounted) return;
+        _showDraftRecoverySheet(text, moodValue);
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -175,6 +186,28 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   String get _freeText =>
       _blocks.whereType<TextBlock>().map((b) => b.text).join('\n\n');
 
+  Future<void> _pickPhoto() async {
+    try {
+      final picker = ImagePicker();
+      final x = await picker.pickImage(source: ImageSource.gallery);
+      if (x != null && x.path.isNotEmpty && mounted) {
+        setState(() => _photoPaths.add(x.path));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Fotoğraf seçilemedi. Uygulamayı durdurup Run (▶) ile yeniden başlatın.',
+            ),
+            duration: Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _saveEntry() async {
     final text = _freeText.trim();
     if (text.isEmpty) return;
@@ -200,6 +233,9 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     }
 
     final moodEmojiStr = moodEmoji(_moodValue);
+    final valuesJsonStr = _photoPaths.isNotEmpty
+        ? jsonEncode({'photos': _photoPaths})
+        : null;
 
     await db.into(db.appEntries).insert(
           AppEntriesCompanion.insert(
@@ -209,6 +245,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                 : const Value.absent(),
             freeText: Value(text),
             mood: Value(moodEmojiStr),
+            valuesJson: valuesJsonStr != null ? Value(valuesJsonStr) : const Value.absent(),
             weatherJson: weatherJson != null ? Value(weatherJson) : const Value.absent(),
             locationJson: locationJson != null ? Value(locationJson) : const Value.absent(),
             createdAt: DateTime.now(),
@@ -224,9 +261,10 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
+    // Opak arka plan: mood'a göre hafif soğuk → sıcak ton (şeffaf değil, siyah görünmesin)
     final backgroundColor = Color.lerp(
-      const Color(0x148FA5BA),
-      const Color(0x14D4874E),
+      const Color(0xFFE8ECF0),
+      const Color(0xFFF5EDE4),
       _moodValue,
     )!;
 
@@ -262,6 +300,15 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
           children: [
             if (!_isFocusMode) ...[
               const AtmosphereStrip(),
+              Padding(
+                padding: const EdgeInsets.only(left: 20, top: 4),
+                child: Text(
+                  'Ruh hali',
+                  style: theme.labelSmall?.copyWith(
+                    color: AppColors.textMuted(AppColors.textPrimary),
+                  ),
+                ),
+              ),
               MoodBar(
                 value: _moodValue,
                 onChanged: (v) => setState(() => _moodValue = v),
@@ -317,6 +364,62 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                               filled: false,
                             ),
                           ),
+                          ..._blocks.whereType<AudioBlock>().map(
+                                (b) => AudioBlockRow(block: b),
+                              ),
+                          if (!_isFocusMode && _photoPaths.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 72,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _photoPaths.length,
+                                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                                itemBuilder: (context, i) {
+                                  final path = _photoPaths[i];
+                                  return Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          File(path),
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: GestureDetector(
+                                          onTap: () => setState(() => _photoPaths.removeAt(i)),
+                                          child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (!_isFocusMode) ...[
+                            OutlinedButton.icon(
+                              onPressed: _pickPhoto,
+                              icon: const Icon(Icons.photo_library_outlined, size: 20),
+                              label: const Text('Fotoğraf ekle'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.textPrimary,
+                                side: BorderSide(color: AppColors.textMuted(AppColors.textPrimary)),
+                              ),
+                            ),
+                            AudioRecordButton(
+                              onRecordingDone: (path, duration) {
+                                setState(() => _blocks.add(
+                                      AudioBlock(filePath: path, duration: duration),
+                                    ));
+                              },
+                            ),
+                          ],
                           if (_isFocusMode) ...[
                             const SizedBox(height: 16),
                             Text(
