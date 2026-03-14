@@ -1,12 +1,16 @@
+import 'dart:convert';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/di/core_providers.dart';
-import '../../../core/theme/app_theme.dart';
+import 'widgets/glass_card.dart';
 
-/// Tek bir girişin tam içeriğini gösterir. Rota: /entry/:id
 class EntryDetailScreen extends ConsumerWidget {
   const EntryDetailScreen({super.key, required this.entryId});
 
@@ -14,161 +18,184 @@ class EntryDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context).textTheme;
     final async = ref.watch(entryDetailProvider(entryId));
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: async.when(
-        data: (pair) {
-          if (pair == null) {
-            return Center(
-              child: Text(
-                'Giriş bulunamadı.',
-                style: theme.bodyMedium?.copyWith(
-                  color: AppColors.textMuted(AppColors.textPrimary),
-                ),
-              ),
-            );
-          }
-          final (entry, template) = pair;
-          return _EntryDetailBody(entry: entry, template: template);
-        },
-        loading: () => Center(
-          child: CircularProgressIndicator(
-            color: AppColors.accent,
-            strokeWidth: 2,
-          ),
-        ),
-        error: (err, _) => Center(
-          child: Text(
-            'Yüklenemedi.',
-            style: theme.bodyMedium?.copyWith(
-              color: AppColors.textMuted(AppColors.textPrimary),
+        body: async.when(
+          loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+          error: (e, s) => Center(
+            child: Text(
+              'Yüklenemedi.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
             ),
           ),
+          data: (pair) {
+            if (pair == null) {
+              return Center(
+                child: Text(
+                  'Giriş bulunamadı.',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                ),
+              );
+            }
+            return _Body(entry: pair.$1, template: pair.$2);
+          },
         ),
       ),
     );
   }
 }
 
-class _EntryDetailBody extends StatelessWidget {
-  const _EntryDetailBody({required this.entry, this.template});
+class _Body extends StatelessWidget {
+  const _Body({required this.entry, required this.template});
 
   final AppEntry entry;
   final JournalTemplate? template;
 
-  static String _dateStr(DateTime d) {
+  @override
+  Widget build(BuildContext context) {
+    final title = template?.name ?? 'Giriş';
+    final icon = template?.icon ?? '📝';
+    final body = entry.freeText ?? entry.title ?? '—';
+    final date = _date(entry.createdAt);
+    final loc = _decode(entry.locationJson);
+    final weather = _decode(entry.weatherJson);
+
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          systemOverlayStyle: SystemUiOverlayStyle.light,
+          floating: true,
+          pinned: false,
+          expandedHeight: 140,
+          leading: IconButton(
+            onPressed: () => context.pop(),
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          flexibleSpace: FlexibleSpaceBar(
+            titlePadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            title: Row(
+              children: [
+                Text(icon, style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w300,
+                      color: Colors.white,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _metaPill('🗓️ $date'),
+                    if ((entry.mood ?? '').isNotEmpty) _metaPill('Ruh ${entry.mood}'),
+                    if ((loc['name'] ?? '').toString().isNotEmpty)
+                      _metaPill('📍 ${loc['name']}'),
+                    if ((weather['temp'] ?? '').toString().isNotEmpty)
+                      _metaPill(
+                        '${weather['emoji'] ?? '🌤️'} ${weather['temp']}°C ${weather['condition'] ?? ''}',
+                      ),
+                  ],
+                )
+                    .animate()
+                    .fadeIn(duration: 320.ms)
+                    .slideY(begin: 0.08, end: 0, duration: 320.ms),
+                const SizedBox(height: 14),
+                GlassCard(
+                  opacity: 0.1,
+                  borderRadius: 18,
+                  child: Text(
+                    body,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: 1.8,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                )
+                    .animate()
+                    .fadeIn(delay: 150.ms, duration: 320.ms)
+                    .slideY(begin: 0.08, end: 0, delay: 150.ms, duration: 320.ms),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _metaPill(String text) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.92),
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _date(DateTime d) {
     const months = [
-      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
-  static Color? _parseColor(String hex) {
-    if (hex.length != 7 || !hex.startsWith('#')) return null;
-    final r = int.tryParse(hex.substring(1, 3), radix: 16);
-    final g = int.tryParse(hex.substring(3, 5), radix: 16);
-    final b = int.tryParse(hex.substring(5, 7), radix: 16);
-    if (r == null || g == null || b == null) return null;
-    return Color.fromARGB(255, r, g, b);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-    final title = template?.name ?? 'Giriş';
-    final emoji = template?.icon ?? '📝';
-    final color = template != null ? _parseColor(template!.color) : null;
-    final date = _dateStr(entry.createdAt);
-    final body = entry.freeText ?? entry.title ?? '—';
-
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 28)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.titleLarge?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            date,
-            style: theme.labelMedium?.copyWith(
-              color: AppColors.textMuted(AppColors.textPrimary),
-            ),
-          ),
-          if ((entry.mood?.isNotEmpty ?? false)) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                entry.mood ?? '',
-                style: theme.labelMedium?.copyWith(
-                  color: AppColors.accent,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: color != null
-                  ? color.withValues(alpha: 0.1)
-                  : AppColors.surface.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(16),
-              border: color != null
-                  ? Border(left: BorderSide(color: color, width: 4))
-                  : null,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  offset: const Offset(0, 2),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Text(
-              body,
-              style: theme.bodyLarge?.copyWith(
-                color: AppColors.textPrimary,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  static Map<String, dynamic> _decode(String? raw) {
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final map = jsonDecode(raw);
+      return map is Map<String, dynamic> ? map : {};
+    } catch (_) {
+      return {};
+    }
   }
 }
+

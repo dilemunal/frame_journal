@@ -166,8 +166,9 @@ class _MoodBarState extends State<MoodBar> with SingleTickerProviderStateMixin {
                           final selected = (widget.value - stop).abs() < 0.13;
                           return GestureDetector(
                             onTap: () {
-                              if (_hintController.isAnimating)
+                              if (_hintController.isAnimating) {
                                 _hintController.stop();
+                              }
                               widget.onChanged(stop);
                             },
                             child: AnimatedScale(

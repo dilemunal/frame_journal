@@ -1,4 +1,8 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,115 +11,429 @@ import '../../../core/di/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/application/auth_notifier.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  static const _animDuration = Duration(milliseconds: 400);
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authNotifierProvider);
     final firstName = _firstNameFromEmail(auth.email);
     final now = DateTime.now();
-    final hour = now.hour;
+    final greeting = greetingForHour(now.hour);
+    final dateText = _formatDateTr(now);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final anCardHeight = constraints.maxHeight * 0.35;
-            return SingleChildScrollView(
-              physics: const ClampingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, c) {
+              return Stack(
                 children: [
-                  _TopBar(firstName: firstName),
-                  SizedBox(height: constraints.maxHeight * 0.02),
-                  _AnCard(
-                    height: anCardHeight,
-                    hour: hour,
-                    date: now,
-                    showWeather: false,
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _TopBar(firstName: firstName),
+                        const SizedBox(height: 14),
+                        _WeekStrip(now: now),
+                        const SizedBox(height: 24),
+                        Text(
+                          greeting,
+                          style: TextStyle(
+                            color: AppColors.textOnGlassPrimary,
+                            fontSize: 42,
+                            fontWeight: FontWeight.w300,
+                            height: 1.05,
+                            letterSpacing: -0.7,
+                          ),
+                        )
+                            .animate()
+                            .fadeIn(
+                              duration: 450.ms,
+                              delay: 100.ms,
+                              curve: Curves.easeOut,
+                            )
+                            .slideY(
+                              begin: 0.05,
+                              end: 0,
+                              duration: 450.ms,
+                              delay: 100.ms,
+                            ),
+                        const SizedBox(height: 6),
+                        Text(
+                          dateText,
+                          style: TextStyle(
+                            color: AppColors.textOnGlassMuted,
+                            fontSize: 14,
+                          ),
+                        ),
+                        SizedBox(height: c.maxHeight * 0.24),
+                        _BottomPanel(),
+                      ],
+                    ),
                   ),
-                  SizedBox(height: constraints.maxHeight * 0.03),
-                  _QuickEntryButton(
-                    onTap: () => context.pushNamed('entryNew'),
-                  ),
-                  SizedBox(height: constraints.maxHeight * 0.035),
-                  const _TemplateCardsSection(),
-                  SizedBox(height: constraints.maxHeight * 0.025),
-                  const _SonGirislerSection(),
-                  const SizedBox(height: 24),
                 ],
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
   }
-
-  String _firstNameFromEmail(String? email) {
-    if (email == null || email.isEmpty) return '';
-    final part = email.split('@').first;
-    if (part.isEmpty) return '';
-    return part.length > 1
-        ? '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}'
-        : part.toUpperCase();
-  }
-
 }
 
 class _TopBar extends StatelessWidget {
   const _TopBar({required this.firstName});
-
   final String firstName;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-    final greeting = firstName.isEmpty ? 'Merhaba.' : 'Merhaba, $firstName';
-    final initials = firstName.isEmpty
-        ? '?'
-        : firstName.length >= 2
-        ? firstName.substring(0, 2).toUpperCase()
-        : firstName.toUpperCase();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            greeting,
-            style: theme.bodyMedium?.copyWith(
-              color: AppColors.textMuted(AppColors.textPrimary),
-              fontWeight: FontWeight.w400,
-              letterSpacing: 0.2,
+    final subtitle =
+        firstName.isEmpty ? 'Merhaba' : 'Merhaba, $firstName';
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            subtitle,
+            style: TextStyle(
+              color: AppColors.textOnGlassMuted,
+              fontSize: 14,
             ),
           ),
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.surface,
-            child: Text(
-              initials,
-              style: theme.labelMedium?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
+        ),
+        ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.glassFill12,
+                border: Border.all(color: AppColors.glassBorder),
+              ),
+              child: Icon(Icons.person, color: Colors.white.withValues(alpha: 0.9)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WeekStrip extends StatelessWidget {
+  const _WeekStrip({required this.now});
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    const days = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'];
+    final today = now.weekday - 1;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(7, (i) {
+        final selected = i == today;
+        return Column(
+          children: [
+            Text(
+              days[i],
+              style: TextStyle(
+                color: selected
+                    ? AppColors.textOnGlassPrimary
+                    : Colors.white.withValues(alpha: 0.4),
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
+            const SizedBox(height: 4),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? Colors.white : Colors.transparent,
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+class _BottomPanel extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+          decoration: BoxDecoration(
+            color: AppColors.glassFill13,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18),
+            ),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _QuickEntryButton(
+                onTap: () => context.pushNamed('entryNew'),
+              ),
+              const SizedBox(height: 16),
+              const _TemplateSection(),
+              const SizedBox(height: 14),
+              const _RecentSection(),
+            ],
+          ),
+        ),
+      ),
+    )
+        .animate()
+        .slideY(begin: 0.15, end: 0, duration: 500.ms, curve: Curves.easeOut)
+        .fadeIn(duration: 500.ms);
+  }
+}
+
+class _QuickEntryButton extends StatelessWidget {
+  const _QuickEntryButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Bugünü kaydet',
+                style: TextStyle(
+                  color: AppColors.textOnGlassPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.9)),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _TemplateSection extends ConsumerWidget {
+  const _TemplateSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(journalTemplatesProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, s) => const SizedBox.shrink(),
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Şablonlar',
+              style: TextStyle(
+                color: AppColors.textOnGlassMuted,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: list.map((t) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: InkWell(
+                      onTap: () => context.pushNamed(
+                        'entryNew',
+                        queryParameters: {'templateId': '${t.id}'},
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 88,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.13),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(t.icon, style: const TextStyle(fontSize: 24)),
+                            const SizedBox(height: 6),
+                            Text(
+                              t.name,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RecentSection extends ConsumerWidget {
+  const _RecentSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(recentEntriesProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, s) => const SizedBox.shrink(),
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Son girişler',
+              style: TextStyle(color: AppColors.textOnGlassMuted, fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            ...List.generate(list.length, (index) {
+              final (entry, template) = list[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _RecentCard(
+                  entry: entry,
+                  template: template,
+                  onTap: () => context.push('/entry/${entry.id}'),
+                )
+                    .animate()
+                    .fadeIn(duration: 320.ms, delay: Duration(milliseconds: 80 * index))
+                    .slideX(
+                      begin: 0.06,
+                      end: 0,
+                      duration: 320.ms,
+                      delay: Duration(milliseconds: 80 * index),
+                    ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RecentCard extends StatelessWidget {
+  const _RecentCard({
+    required this.entry,
+    required this.template,
+    required this.onTap,
+  });
+
+  final AppEntry entry;
+  final JournalTemplate? template;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = _parseHexColor(template?.color ?? '');
+    final preview = (entry.freeText ?? entry.title ?? '').trim();
+    final text = preview.isEmpty
+        ? '—'
+        : (preview.length > 85 ? '${preview.substring(0, 85)}...' : preview);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: tint != null
+              ? tint.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border(
+            left: tint != null
+                ? BorderSide(color: tint, width: 3)
+                : BorderSide(color: Colors.white.withValues(alpha: 0.2), width: 0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    template?.name ?? 'Giriş',
+                    style: TextStyle(
+                      color: AppColors.textOnGlassPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.75)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _firstNameFromEmail(String? email) {
+  if (email == null || email.isEmpty) return '';
+  final part = email.split('@').first;
+  if (part.isEmpty) return '';
+  return part.length > 1
+      ? '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}'
+      : part.toUpperCase();
+}
+
+Color? _parseHexColor(String hex) {
+  if (hex.length != 7 || !hex.startsWith('#')) return null;
+  final r = int.tryParse(hex.substring(1, 3), radix: 16);
+  final g = int.tryParse(hex.substring(3, 5), radix: 16);
+  final b = int.tryParse(hex.substring(5, 7), radix: 16);
+  if (r == null || g == null || b == null) return null;
+  return Color.fromARGB(255, r, g, b);
 }
 
 String _formatDateTr(DateTime d) {
@@ -133,521 +451,5 @@ String _formatDateTr(DateTime d) {
     'Kasım',
     'Aralık',
   ];
-  const weekdays = [
-    'Pazartesi',
-    'Salı',
-    'Çarşamba',
-    'Perşembe',
-    'Cuma',
-    'Cumartesi',
-    'Pazar',
-  ];
-  final wd = d.weekday - 1;
-  return '${d.day} ${months[d.month - 1]}, ${weekdays[wd]}';
+  return '${d.day} ${months[d.month - 1]} ${d.year}';
 }
-
-class _AnCard extends StatelessWidget {
-  const _AnCard({
-    required this.height,
-    required this.hour,
-    required this.date,
-    required this.showWeather,
-  });
-
-  final double height;
-  final int hour;
-  final DateTime date;
-  final bool showWeather;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-    final tint = AppColors.anCardTintForHour(hour);
-    final greeting = greetingForHour(hour);
-    final dateStr = _formatDateTr(date);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: AnimatedContainer(
-        duration: _HomeScreenState._animDuration,
-        curve: Curves.easeInOut,
-        height: height,
-        decoration: BoxDecoration(
-          color: tint,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              offset: const Offset(0, 2),
-              blurRadius: 12,
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                greeting,
-                style: theme.titleLarge?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                dateStr,
-                style: theme.bodySmall?.copyWith(
-                  color: AppColors.textMuted(AppColors.textPrimary),
-                  letterSpacing: 0.5,
-                  height: 1.4,
-                ),
-              ),
-              if (showWeather) ...[
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.wb_sunny_outlined,
-                      size: 18,
-                      color: AppColors.textMuted(AppColors.textPrimary),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '— °C',
-                      style: theme.bodySmall?.copyWith(
-                        color: AppColors.textMuted(AppColors.textPrimary),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickEntryButton extends StatelessWidget {
-  const _QuickEntryButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  offset: const Offset(0, 2),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                'Bugünü kaydet →',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TemplateCardsSection extends ConsumerWidget {
-  const _TemplateCardsSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context).textTheme;
-    final templatesAsync = ref.watch(journalTemplatesProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'Şablonlar',
-            style: theme.labelMedium?.copyWith(
-              color: AppColors.textMuted(AppColors.textPrimary),
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 88,
-          child: templatesAsync.when(
-            data: (templates) {
-              return ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                scrollDirection: Axis.horizontal,
-                itemCount: templates.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, i) {
-                  if (i == templates.length) {
-                    return _TemplateChip(
-                      emoji: '+',
-                      label: 'Yeni şablon',
-                      isNew: true,
-                      onTap: () => context.pushNamed('templateBuilder'),
-                    );
-                  }
-                  final t = templates[i];
-                  return _TemplateChip(
-                    emoji: t.icon,
-                    label: t.name,
-                    isNew: false,
-                    onTap: () => context.pushNamed(
-                      'entryNew',
-                      queryParameters: {'templateId': '${t.id}'},
-                    ),
-                  );
-                },
-              );
-            },
-            loading: () => ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              scrollDirection: Axis.horizontal,
-              itemCount: 4,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, i) => _TemplateChip(
-                emoji: i == 3 ? '+' : '📝',
-                label: i == 3 ? 'Yeni şablon' : '...',
-                isNew: i == 3,
-              ),
-            ),
-            error: (_, __) => ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              scrollDirection: Axis.horizontal,
-              children: [
-                _TemplateChip(
-                  emoji: '+',
-                  label: 'Yeni şablon',
-                  isNew: true,
-                  onTap: () => context.pushNamed('templateBuilder'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TemplateChip extends StatelessWidget {
-  const _TemplateChip({
-    required this.emoji,
-    required this.label,
-    this.isNew = false,
-    this.onTap,
-  });
-
-  final String emoji;
-  final String label;
-  final bool isNew;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-    final child = Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(emoji, style: const TextStyle(fontSize: 22)),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: theme.labelSmall?.copyWith(
-            color: isNew
-                ? AppColors.accent
-                : AppColors.textMuted(AppColors.textPrimary),
-            fontWeight: isNew ? FontWeight.w600 : FontWeight.w400,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-    return SizedBox(
-      width: 100,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  offset: const Offset(0, 1),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SonGirislerSection extends ConsumerWidget {
-  const _SonGirislerSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context).textTheme;
-    final recentAsync = ref.watch(recentEntriesProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'Son girişler',
-            style: theme.labelMedium?.copyWith(
-              color: AppColors.textMuted(AppColors.textPrimary),
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        recentAsync.when(
-          data: (list) {
-            if (list.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Henüz giriş yok. "Bugünü kaydet" ile başla.',
-                  style: theme.bodySmall?.copyWith(
-                    color: AppColors.textMuted(AppColors.textPrimary),
-                  ),
-                ),
-              );
-            }
-            return ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: list.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, i) {
-                final (entry, template) = list[i];
-                return _SonGirisCard(
-                  entry: entry,
-                  template: template,
-                  onTap: () => context.push('/entry/${entry.id}'),
-                );
-              },
-            );
-          },
-          loading: () => ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 3,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) => _SonGirisPlaceholder(index: index),
-          ),
-          error: (_, __) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Girişler yüklenemedi.',
-              style: theme.bodySmall?.copyWith(
-                color: AppColors.textMuted(AppColors.textPrimary),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SonGirisCard extends StatelessWidget {
-  const _SonGirisCard({
-    required this.entry,
-    this.template,
-    this.onTap,
-  });
-
-  final AppEntry entry;
-  final JournalTemplate? template;
-  final VoidCallback? onTap;
-
-  static String _preview(String? freeText, String? title) {
-    final raw = freeText ?? title ?? '';
-    if (raw.isEmpty) return '—';
-    return raw.length > 35 ? '${raw.substring(0, 35)}...' : raw;
-  }
-
-  static String _dateStr(DateTime d) {
-    const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-    return '${d.day} ${months[d.month - 1]}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-    final title = template?.name ?? 'Giriş';
-    final emoji = template?.icon ?? '📝';
-    final color = template != null ? _parseColor(template!.color) : null;
-    final date = _dateStr(entry.createdAt);
-    final preview = _preview(entry.freeText, entry.title);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: color != null ? color.withValues(alpha: 0.15) : AppColors.surface.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(14),
-            border: color != null ? Border(left: BorderSide(color: color, width: 3)) : null,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                offset: const Offset(0, 1),
-                blurRadius: 6,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.labelMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$date · $preview',
-                      style: theme.bodySmall?.copyWith(
-                        color: AppColors.textMuted(AppColors.textPrimary),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  static Color? _parseColor(String hex) {
-    if (hex.length != 7 || !hex.startsWith('#')) return null;
-    final r = int.tryParse(hex.substring(1, 3), radix: 16);
-    final g = int.tryParse(hex.substring(3, 5), radix: 16);
-    final b = int.tryParse(hex.substring(5, 7), radix: 16);
-    if (r == null || g == null || b == null) return null;
-    return Color.fromARGB(255, r, g, b);
-  }
-}
-
-class _SonGirisPlaceholder extends StatelessWidget {
-  const _SonGirisPlaceholder({required this.index});
-
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-    final placeholders = [
-      ('🤿', 'Dalış', '12 Mart', 'Sığ su, 8m...'),
-      ('📚', 'Kitap', '11 Mart', 'Bölüm 3\'ü bitirdim...'),
-      ('🎾', 'Tenis', '10 Mart', 'Maç 6-4, 6-3...'),
-    ];
-    final (emoji, title, date, preview) = placeholders[index];
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            offset: const Offset(0, 1),
-            blurRadius: 6,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.labelMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$date · $preview',
-                  style: theme.bodySmall?.copyWith(
-                    color: AppColors.textMuted(AppColors.textPrimary),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-

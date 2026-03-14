@@ -9,6 +9,30 @@ class AppColors {
   static const Color accent = Color(0xFF8FA5BA);
   static const Color textPrimary = Color(0xFF242018);
 
+  // Glass tokens
+  static final Color glassFill12 = Colors.white.withValues(alpha: 0.12);
+  static final Color glassFill20 = Colors.white.withValues(alpha: 0.20);
+  static final Color glassFill13 = Colors.white.withValues(alpha: 0.13);
+  static final Color glassBorder = Colors.white.withValues(alpha: 0.20);
+
+  // Overlay tokens (time-aware)
+  static final Color overlayMorning = Colors.black.withValues(alpha: 0.15);
+  static final Color overlayDay = Colors.black.withValues(alpha: 0.22);
+  static final Color overlayEvening = Colors.black.withValues(alpha: 0.33);
+  static final Color overlayNight = Colors.black.withValues(alpha: 0.45);
+
+  static Color overlayForHour(int hour) {
+    if (hour >= 22 || hour < 6) return overlayNight;
+    if (hour >= 18) return overlayEvening;
+    if (hour >= 11) return overlayDay;
+    return overlayMorning;
+  }
+
+  // Text colors on glass
+  static final Color textOnGlassPrimary = Colors.white.withValues(alpha: 0.95);
+  static final Color textOnGlassMuted = Colors.white.withValues(alpha: 0.55);
+  static final Color textOnGlassHint = Colors.white.withValues(alpha: 0.35);
+
   /// Muted text
   static Color textMuted(Color base) => base.withValues(alpha: 0.6);
 

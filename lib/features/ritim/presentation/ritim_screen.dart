@@ -1,196 +1,187 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../application/rhythm_provider.dart';
 
-/// Ritim ekranı — günlük ritim blokları (Sabah / Öğlen / Akşam) ve tamamlanma.
 class RitimScreen extends ConsumerWidget {
   const RitimScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context).textTheme;
-    final asyncCompleted = ref.watch(rhythmCompletionsProvider);
+    final async = ref.watch(rhythmCompletionsProvider);
     final notifier = ref.read(rhythmCompletionsProvider.notifier);
-    final completed = asyncCompleted.valueOrNull ?? <String>{};
+    final completed = async.valueOrNull ?? <String>{};
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-                child: Text(
-                  'Ritim',
-                  style: theme.headlineMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    'Ritim',
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w300,
+                      color: Colors.white.withValues(alpha: 0.95),
+                    ),
                   ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Günlük ritmin — bugün hangi blokları tamamladın?',
-                  style: theme.bodyMedium?.copyWith(
-                    color: AppColors.textMuted(AppColors.textPrimary),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+                  child: Text(
+                    'Bugün hangi ritim bloklarını tamamladın?',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.50)),
                   ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            asyncCompleted.when(
-              data: (_) => SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
+              async.when(
+                loading: () => const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  ),
+                ),
+                error: (e, s) => SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Ritim yüklenemedi.',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.60)),
+                    ),
+                  ),
+                ),
+                data: (_) => SliverList.builder(
+                  itemCount: kRhythmSlotKeys.length,
+                  itemBuilder: (context, index) {
                     final key = kRhythmSlotKeys[index];
                     final label = kRhythmSlotLabels[key] ?? key;
                     final isDone = completed.contains(key);
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: _RhythmBlockCard(
+                      child: _RhythmCard(
                         label: label,
                         slotKey: key,
-                        isCompleted: isDone,
-                        onTap: () => notifier.toggle(key),
-                      ),
+                        completed: isDone,
+                        onToggle: () => notifier.toggle(key),
+                      )
+                          .animate()
+                          .fadeIn(
+                            delay: Duration(milliseconds: 70 * index),
+                            duration: 280.ms,
+                          )
+                          .slideY(
+                            begin: 0.08,
+                            end: 0,
+                            delay: Duration(milliseconds: 70 * index),
+                            duration: 280.ms,
+                          ),
                     );
                   },
-                  childCount: kRhythmSlotKeys.length,
                 ),
               ),
-              loading: () => SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.accent,
-                      strokeWidth: 2,
-                    ),
-                  ),
-                ),
-              ),
-              error: (err, _) => SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Ritim yüklenemedi.',
-                    style: theme.bodyMedium?.copyWith(
-                      color: AppColors.textMuted(AppColors.textPrimary),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 22)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _RhythmBlockCard extends StatelessWidget {
-  const _RhythmBlockCard({
+class _RhythmCard extends StatelessWidget {
+  const _RhythmCard({
     required this.label,
     required this.slotKey,
-    required this.isCompleted,
-    required this.onTap,
+    required this.completed,
+    required this.onToggle,
   });
 
   final String label;
   final String slotKey;
-  final bool isCompleted;
-  final VoidCallback onTap;
+  final bool completed;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    return InkWell(
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(16),
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                offset: const Offset(0, 4),
-                blurRadius: 12,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? AppColors.accent.withValues(alpha: 0.2)
-                      : AppColors.background.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  isCompleted ? Icons.check_rounded : _iconForSlot(slotKey),
-                  size: 26,
-                  color: isCompleted
-                      ? AppColors.accent
-                      : AppColors.textMuted(AppColors.textPrimary),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.titleMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                    decorationColor: AppColors.textMuted(AppColors.textPrimary),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: completed
+                  ? Colors.white.withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: completed ? 0.24 : 0.13),
+                  ),
+                  child: Icon(
+                    completed ? Icons.check_rounded : _iconFor(slotKey),
+                    color: Colors.white.withValues(alpha: completed ? 0.95 : 0.50),
                   ),
                 ),
-              ),
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: Checkbox(
-                  value: isCompleted,
-                  onChanged: (_) => onTap(),
-                  activeColor: AppColors.accent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: completed ? 0.95 : 0.75),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
+                Checkbox(
+                  value: completed,
+                  onChanged: (_) => onToggle(),
+                  activeColor: Colors.white,
+                  checkColor: const Color(0xFF2A2A2A),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}
 
-IconData _iconForSlot(String slotKey) {
-  switch (slotKey) {
-    case 'morning':
-      return Icons.wb_sunny_outlined;
-    case 'noon':
-      return Icons.light_mode_outlined;
-    case 'evening':
-      return Icons.nights_stay_outlined;
-    default:
-      return Icons.schedule_outlined;
+  static IconData _iconFor(String slotKey) {
+    switch (slotKey) {
+      case 'morning':
+        return Icons.wb_sunny_outlined;
+      case 'noon':
+        return Icons.light_mode_outlined;
+      case 'evening':
+        return Icons.nights_stay_outlined;
+      default:
+        return Icons.schedule_outlined;
+    }
   }
 }
+
