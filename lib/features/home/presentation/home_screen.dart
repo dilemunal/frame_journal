@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -46,7 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   SizedBox(height: constraints.maxHeight * 0.03),
                   _QuickEntryButton(
-                    onTap: () => _openQuickEntrySheet(context),
+                    onTap: () => context.pushNamed('entryNew'),
                   ),
                   SizedBox(height: constraints.maxHeight * 0.035),
                   const _TemplateCardsSection(),
@@ -71,19 +70,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : part.toUpperCase();
   }
 
-  void _openQuickEntrySheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _QuickEntryBottomSheet(
-        onSaved: () {
-          ref.invalidate(recentEntriesProvider);
-          ref.invalidate(memoryEntriesProvider);
-        },
-      ),
-    );
-  }
 }
 
 class _TopBar extends StatelessWidget {
@@ -336,6 +322,10 @@ class _TemplateCardsSection extends ConsumerWidget {
                     emoji: t.icon,
                     label: t.name,
                     isNew: false,
+                    onTap: () => context.pushNamed(
+                      'entryNew',
+                      queryParameters: {'templateId': '${t.id}'},
+                    ),
                   );
                 },
               );
@@ -661,277 +651,3 @@ class _SonGirisPlaceholder extends StatelessWidget {
   }
 }
 
-// --- Quick entry bottom sheet (3 tabs: Surface / Dive / Detail) ---
-
-class _QuickEntryBottomSheet extends ConsumerStatefulWidget {
-  const _QuickEntryBottomSheet({required this.onSaved});
-
-  final VoidCallback onSaved;
-
-  @override
-  ConsumerState<_QuickEntryBottomSheet> createState() =>
-      _QuickEntryBottomSheetState();
-}
-
-class _QuickEntryBottomSheetState extends ConsumerState<_QuickEntryBottomSheet>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveEntry({String? freeText, String? mood}) async {
-    final text = (freeText ?? '').trim();
-    if (text.isEmpty) return;
-    final db = ref.read(appDatabaseProvider);
-    await db.into(db.appEntries).insert(
-          AppEntriesCompanion.insert(
-            userId: kLocalUserId,
-            freeText: Value(text),
-            mood: mood != null && mood.isNotEmpty ? Value(mood) : const Value.absent(),
-            createdAt: DateTime.now(),
-          ),
-        );
-    widget.onSaved();
-    if (mounted) Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            offset: const Offset(0, -2),
-            blurRadius: 20,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          TabBar(
-            controller: _tabController,
-            labelColor: AppColors.textPrimary,
-            unselectedLabelColor: AppColors.textMuted(AppColors.textPrimary),
-            indicatorColor: AppColors.accent,
-            indicatorWeight: 3,
-            labelStyle: Theme.of(context).textTheme.labelLarge,
-            tabs: const [
-              Tab(text: 'Surface'),
-              Tab(text: 'Dive'),
-              Tab(text: 'Detail'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _SurfaceTab(onSave: (text) => _saveEntry(freeText: text)),
-                _DiveTab(onSave: (text, mood) => _saveEntry(freeText: text, mood: mood)),
-                _DetailTab(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SurfaceTab extends StatefulWidget {
-  const _SurfaceTab({required this.onSave});
-
-  final void Function(String text) onSave;
-
-  @override
-  State<_SurfaceTab> createState() => _SurfaceTabState();
-}
-
-class _SurfaceTabState extends State<_SurfaceTab> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _controller,
-            maxLines: 3,
-            decoration: InputDecoration(
-              hintText: 'Şu an ne düşünüyorsun?',
-              hintStyle: TextStyle(
-                color: AppColors.textMuted(AppColors.textPrimary),
-              ),
-              filled: true,
-              fillColor: AppColors.background.withValues(alpha: 0.3),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => widget.onSave(_controller.text),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: AppColors.surface,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: const Text('Kaydet'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DiveTab extends StatefulWidget {
-  const _DiveTab({required this.onSave});
-
-  final void Function(String text, String? mood) onSave;
-
-  @override
-  State<_DiveTab> createState() => _DiveTabState();
-}
-
-class _DiveTabState extends State<_DiveTab> {
-  final _controller = TextEditingController();
-  String? _selectedMood;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context).textTheme;
-    const moods = ['😊', '😌', '🤔', '😔', '🔥'];
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _controller,
-            maxLines: 5,
-            decoration: InputDecoration(
-              hintText: 'Daha derin bir not...',
-              hintStyle: TextStyle(
-                color: AppColors.textMuted(AppColors.textPrimary),
-              ),
-              filled: true,
-              fillColor: AppColors.background.withValues(alpha: 0.3),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Ruh hali',
-            style: theme.labelMedium?.copyWith(
-              color: AppColors.textMuted(AppColors.textPrimary),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: moods
-                .map(
-                  (e) => GestureDetector(
-                    onTap: () => setState(() => _selectedMood = e),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: _selectedMood == e
-                          ? BoxDecoration(
-                              color: AppColors.accent.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            )
-                          : null,
-                      child: Text(e, style: const TextStyle(fontSize: 28)),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.photo_library_outlined, size: 20),
-            label: const Text('Fotoğraf ekle'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textPrimary,
-              side: BorderSide(
-                color: AppColors.textMuted(AppColors.textPrimary),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => widget.onSave(_controller.text, _selectedMood),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: AppColors.surface,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: const Text('Kaydet'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailTab extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text(
-          'Şablon seçerek detaylı giriş yapabilirsin.\n(Şablon seçici burada açılacak)',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.textMuted(AppColors.textPrimary),
-          ),
-        ),
-      ),
-    );
-  }
-}

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/application/auth_notifier.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/entry/presentation/entry_detail_screen.dart';
+import '../../features/entry/presentation/entry_screen.dart';
 import '../../features/hafiza/presentation/hafiza_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/ritim/presentation/ritim_screen.dart';
@@ -53,6 +54,18 @@ GoRouter appRouter(Ref ref) {
             );
           }
           return EntryDetailScreen(entryId: id);
+        },
+      ),
+      GoRoute(
+        path: '/entry/new',
+        name: 'entryNew',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final templateId = int.tryParse(state.uri.queryParameters['templateId'] ?? '');
+          return EntryScreen(
+          templateId:
+              (templateId != null && templateId > 0) ? templateId : null,
+        );
         },
       ),
       StatefulShellRoute.indexedStack(

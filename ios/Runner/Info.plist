@@ -66,6 +66,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ses notu eklemek için mikrofon gerekiyor.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Girişine konum bilgisi eklemek için konum gerekiyor.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Fotoğraf eklemek için galeri erişimi gerekiyor.</string>
 	<key>GIDClientID</key>
 	<string>325203630340-2i6816d9hg3nj445cjitdtbflrt5oi06.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>

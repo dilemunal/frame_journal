@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/token_storage.dart';
 import '../database/app_database.dart';
 import '../database/seed_templates.dart';
+import '../models/atmosphere_data.dart';
 import '../network/api_client.dart';
+import '../services/location_service.dart';
+import '../services/weather_service.dart';
 
 final Provider<ApiClient> apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(tokenStorage: ref.read(tokenStorageProvider));
@@ -101,4 +104,14 @@ final entryDetailProvider =
     template = list.isEmpty ? null : list.single;
   }
   return (entry, template);
+});
+
+/// Konum + hava durumu (entry ekranı AtmosphereStrip için).
+final atmosphereProvider =
+    FutureProvider.autoDispose<AtmosphereData?>((ref) async {
+  final location = await LocationService().getCurrentLocation();
+  if (location == null) return null;
+  final weather =
+      await WeatherService().getWeather(location.lat, location.lng);
+  return AtmosphereData(location: location, weather: weather);
 });
