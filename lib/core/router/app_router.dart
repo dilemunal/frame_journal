@@ -10,18 +10,23 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
 );
 
+class _AuthListenable extends ChangeNotifier {
+  _AuthListenable(Ref ref) {
+    ref.listen<AuthState>(authNotifierProvider, (_, __) => notifyListeners());
+  }
+}
+
 GoRouter appRouter(Ref ref) {
+  final authListenable = _AuthListenable(ref);
+
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
+    refreshListenable: authListenable,
     initialLocation: '/login',
     redirect: (context, state) {
       final auth = ref.read(authNotifierProvider);
       final loggingIn = state.matchedLocation == '/login';
-
-      if (!auth.isAuthenticated) {
-        return loggingIn ? null : '/login';
-      }
-
+      if (!auth.isAuthenticated) return loggingIn ? null : '/login';
       if (loggingIn) return '/';
       return null;
     },

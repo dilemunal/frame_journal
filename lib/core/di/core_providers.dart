@@ -4,7 +4,7 @@ import '../auth/token_storage.dart';
 import '../network/api_client.dart';
 
 final Provider<ApiClient> apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient();
+  return ApiClient(tokenStorage: ref.read(tokenStorageProvider));
 });
 
 final Provider<TokenStorage> tokenStorageProvider =

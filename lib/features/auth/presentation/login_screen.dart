@@ -44,7 +44,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final raw = e.toString();
       final message = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     } finally {
       if (mounted) {
@@ -54,18 +57,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleGoogleLogin() async {
+    debugPrint('[LoginScreen] Google login started');
     setState(() => _isLoading = true);
     try {
       await ref.read(authNotifierProvider.notifier).loginWithGoogle();
-      if (mounted) {
-        context.go('/');
+      debugPrint(
+        '[LoginScreen] Google loginWithGoogle() returned successfully',
+      );
+      if (!mounted) {
+        debugPrint(
+          '[LoginScreen] Not mounted after login, skipping navigation',
+        );
+        return;
       }
-    } catch (e) {
+      final isAuth = ref.read(authNotifierProvider).isAuthenticated;
+      debugPrint(
+        '[LoginScreen] auth.isAuthenticated=$isAuth, navigating to home',
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.goNamed('home');
+        debugPrint('[LoginScreen] context.goNamed(home) called');
+      });
+    } catch (e, st) {
+      debugPrint('[LoginScreen] Google login error: $e');
+      debugPrint('[LoginScreen] $st');
       if (!mounted) return;
       final raw = e.toString();
       final message = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     } finally {
       if (mounted) {
@@ -100,7 +124,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/images/backgrounf.webp'),
+                image: AssetImage('assets/images/background.webp'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -303,9 +327,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed: _isLoading
-                                      ? null
-                                      : _handleAppleLogin,
+                                  onPressed: null,
                                   style: OutlinedButton.styleFrom(
                                     side: BorderSide(
                                       color: Colors.white.withValues(

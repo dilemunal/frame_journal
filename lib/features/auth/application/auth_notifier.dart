@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -25,7 +26,7 @@ String? _stringOrNull(dynamic value) {
   return value.toString();
 }
 
-class AuthNotifier extends AutoDisposeNotifier<AuthState> {
+class AuthNotifier extends Notifier<AuthState> {
   late final ApiClient _apiClient;
   late final TokenStorage _tokenStorage;
 
@@ -33,7 +34,15 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
   AuthState build() {
     _apiClient = ref.read(apiClientProvider);
     _tokenStorage = ref.read(tokenStorageProvider);
+    _checkPersistedLogin();
     return const AuthState(isAuthenticated: false);
+  }
+
+  Future<void> _checkPersistedLogin() async {
+    final token = await _tokenStorage.readAccessToken();
+    if (token != null && token.isNotEmpty) {
+      state = state.copyWith(isAuthenticated: true);
+    }
   }
 
   Future<void> loginWithEmail({
@@ -65,9 +74,11 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
   }
 
   Future<void> loginWithGoogle() async {
-    final googleSignIn = GoogleSignIn(
-      serverClientId: '325203630340-lcgk3b43a4sbvdl10ud1ra2l38j6ar34.apps.googleusercontent.com',
+    final serverClientId = const String.fromEnvironment(
+      'GOOGLE_SERVER_CLIENT_ID',
+      defaultValue: '325203630340-lcgk3b43a4sbvdl10ud1ra2l38j6ar34.apps.googleusercontent.com',
     );
+    final googleSignIn = GoogleSignIn(serverClientId: serverClientId);
     // Önbelleklenmiş token bazen sadece iOS client audience ile gelir; yeni token için önce sessiz signOut.
     await googleSignIn.signOut();
     final googleUser = await googleSignIn.signIn();
@@ -101,7 +112,19 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
       );
 
       state = AuthState(isAuthenticated: true, email: googleUser.email);
-    } catch (e) {
+      assert(() {
+        // ignore: avoid_print
+        print('[AuthNotifier] Google login OK, state.isAuthenticated=${state.isAuthenticated}');
+        return true;
+      }());
+    } catch (e, st) {
+      assert(() {
+        // ignore: avoid_print
+        print('[AuthNotifier] Google login FAIL: $e');
+        // ignore: avoid_print
+        print(st);
+        return true;
+      }());
       if (e is Exception) rethrow;
       throw Exception('Google ile giriş başarısız: $e');
     }
@@ -124,9 +147,30 @@ class AuthNotifier extends AutoDisposeNotifier<AuthState> {
 
     state = state.copyWith(isAuthenticated: true);
   }
+
+  Future<void> logout() async {
+    try {
+      final googleSignIn = GoogleSignIn();
+      await googleSignIn.signOut();
+    } catch (_) {}
+
+    final token = await _tokenStorage.readAccessToken();
+    if (token != null) {
+      try {
+        await _apiClient.post(
+          '/api/auth/logout',
+          options: Options(
+            headers: <String, dynamic>{'Authorization': 'Bearer $token'},
+          ),
+        );
+      } catch (_) {}
+    }
+
+    await _tokenStorage.clear();
+    state = const AuthState(isAuthenticated: false);
+  }
 }
 
-final AutoDisposeNotifierProvider<AuthNotifier, AuthState>
-authNotifierProvider = AutoDisposeNotifierProvider<AuthNotifier, AuthState>(
-  AuthNotifier.new,
-);
+/// AutoDispose kullanmıyoruz: await sırasında dispose olup state kaybolmasın, router redirect doğru görsün.
+final NotifierProvider<AuthNotifier, AuthState> authNotifierProvider =
+    NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
