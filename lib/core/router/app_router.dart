@@ -46,11 +46,33 @@ GoRouter appRouter(Ref ref) {
         path: '/entry/new',
         name: 'entryNew',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final templateId = int.tryParse(state.uri.queryParameters['templateId'] ?? '');
-          return EntryScreen(
-            templateId:
-                (templateId != null && templateId > 0) ? templateId : null,
+          final child = EntryScreen(
+            templateId: (templateId != null && templateId > 0) ? templateId : null,
+          );
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            transitionDuration: const Duration(milliseconds: 220),
+            reverseTransitionDuration: const Duration(milliseconds: 180),
+            child: child,
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              final curved = CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              );
+              return FadeTransition(
+                opacity: curved,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.03),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: child,
+                ),
+              );
+            },
           );
         },
       ),

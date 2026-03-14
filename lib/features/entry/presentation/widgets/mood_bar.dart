@@ -48,13 +48,13 @@ class _MoodBarState extends State<MoodBar> with SingleTickerProviderStateMixin {
     super.initState();
     _hintController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2100),
+      duration: const Duration(milliseconds: 2200),
     );
     _hintAnim =
         TweenSequence<double>([
-            TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.3), weight: 1),
-            TweenSequenceItem(tween: Tween(begin: 0.3, end: 0.7), weight: 1),
-            TweenSequenceItem(tween: Tween(begin: 0.7, end: 0.5), weight: 1),
+            TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.42), weight: 1),
+            TweenSequenceItem(tween: Tween(begin: 0.42, end: 0.58), weight: 1),
+            TweenSequenceItem(tween: Tween(begin: 0.58, end: 0.5), weight: 1),
           ]).animate(
             CurvedAnimation(
               parent: _hintController,
@@ -77,8 +77,9 @@ class _MoodBarState extends State<MoodBar> with SingleTickerProviderStateMixin {
 
   void _updateFromPosition(Offset local, double trackWidth, double leftPad) {
     if (_hintController.isAnimating) _hintController.stop();
-    final t = ((local.dx - leftPad) / trackWidth).clamp(0.0, 1.0);
-    widget.onChanged(t);
+    final target = ((local.dx - leftPad) / trackWidth).clamp(0.0, 1.0);
+    final smooth = widget.value + (target - widget.value) * 0.22;
+    widget.onChanged(smooth.clamp(0.0, 1.0));
   }
 
   @override

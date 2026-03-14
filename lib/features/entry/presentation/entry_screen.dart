@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/data/prompt_questions.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/di/core_providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../domain/entry_block.dart';
 import 'widgets/atmosphere_strip.dart';
 import 'widgets/audio_block_widget.dart';
@@ -340,6 +341,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     });
 
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0.0;
+    final hour = DateTime.now().hour;
     final moodOverlay = Color.lerp(
       const Color(0x148FA5BA),
       const Color(0x14D4874E),
@@ -349,6 +351,11 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     return Stack(
       fit: StackFit.expand,
       children: [
+        Image.asset('assets/images/background.webp', fit: BoxFit.cover),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 700),
+          color: AppColors.overlayForHour(hour),
+        ),
         AnimatedContainer(
           duration: const Duration(milliseconds: 500),
           color: moodOverlay,

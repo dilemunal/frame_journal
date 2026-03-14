@@ -29,6 +29,7 @@ class HomeScreen extends ConsumerWidget {
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, c) {
+              final panelTopGap = (c.maxHeight * 0.06).clamp(36.0, 80.0);
               return Stack(
                 children: [
                   SingleChildScrollView(
@@ -70,7 +71,7 @@ class HomeScreen extends ConsumerWidget {
                             fontSize: 14,
                           ),
                         ),
-                        SizedBox(height: c.maxHeight * 0.24),
+                        SizedBox(height: panelTopGap),
                         _BottomPanel(),
                       ],
                     ),

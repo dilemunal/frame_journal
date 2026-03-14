@@ -14,10 +14,14 @@ class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hour = DateTime.now().hour;
+    final isHome = navigationShell.currentIndex == 0;
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset('assets/images/background.webp', fit: BoxFit.cover),
+        Image.asset(
+          isHome ? 'assets/images/sea.jpg' : 'assets/images/background.webp',
+          fit: BoxFit.cover,
+        ),
         AnimatedContainer(
           duration: const Duration(milliseconds: 800),
           color: AppColors.overlayForHour(hour),

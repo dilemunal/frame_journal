@@ -84,6 +84,7 @@ flutter:
 
   assets:
     - assets/images/background.webp
+    - assets/images/sea.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
