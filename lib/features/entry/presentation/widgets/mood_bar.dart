@@ -27,11 +27,7 @@ String moodLabel(double v) {
 }
 
 class MoodBar extends StatefulWidget {
-  const MoodBar({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
+  const MoodBar({super.key, required this.value, required this.onChanged});
 
   final double value;
   final ValueChanged<double> onChanged;
@@ -52,17 +48,25 @@ class _MoodBarState extends State<MoodBar> with SingleTickerProviderStateMixin {
     super.initState();
     _hintController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 2100),
     );
-    _hintAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.3), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 0.3, end: 0.7), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: 0.7, end: 0.5), weight: 1),
-    ]).animate(CurvedAnimation(parent: _hintController, curve: Curves.easeInOut))
-      ..addListener(() {
-        if (_hintController.isAnimating) widget.onChanged(_hintAnim.value);
-      });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _hintController.forward());
+    _hintAnim =
+        TweenSequence<double>([
+            TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.3), weight: 1),
+            TweenSequenceItem(tween: Tween(begin: 0.3, end: 0.7), weight: 1),
+            TweenSequenceItem(tween: Tween(begin: 0.7, end: 0.5), weight: 1),
+          ]).animate(
+            CurvedAnimation(
+              parent: _hintController,
+              curve: Curves.easeInOutCubic,
+            ),
+          )
+          ..addListener(() {
+            if (_hintController.isAnimating) widget.onChanged(_hintAnim.value);
+          });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _hintController.forward(),
+    );
   }
 
   @override
@@ -86,13 +90,13 @@ class _MoodBarState extends State<MoodBar> with SingleTickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          )
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              )
               .animate(key: ValueKey(label))
               .fadeIn(duration: 200.ms)
               .slideY(begin: 0.2, end: 0, duration: 200.ms),
@@ -131,7 +135,9 @@ class _MoodBarState extends State<MoodBar> with SingleTickerProviderStateMixin {
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(2),
-                            gradient: const LinearGradient(colors: [_cold, _warm]),
+                            gradient: const LinearGradient(
+                              colors: [_cold, _warm],
+                            ),
                           ),
                         ),
                       ),
@@ -160,7 +166,8 @@ class _MoodBarState extends State<MoodBar> with SingleTickerProviderStateMixin {
                           final selected = (widget.value - stop).abs() < 0.13;
                           return GestureDetector(
                             onTap: () {
-                              if (_hintController.isAnimating) _hintController.stop();
+                              if (_hintController.isAnimating)
+                                _hintController.stop();
                               widget.onChanged(stop);
                             },
                             child: AnimatedScale(
