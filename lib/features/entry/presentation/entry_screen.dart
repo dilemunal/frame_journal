@@ -384,10 +384,11 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     }
 
     final createdAt = DateTime.now();
+    final userId = ref.read(currentUserIdProvider);
     try {
       await db.into(db.appEntries).insert(
             AppEntriesCompanion.insert(
-              userId: kLocalUserId,
+              userId: userId,
               templateId: widget.templateId != null
                   ? Value(widget.templateId)
                   : const Value.absent(),

@@ -1,6 +1,8 @@
-import 'package:drift/drift.dart' show OrderingTerm, Value;
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/auth/application/auth_notifier.dart';
 import '../auth/token_storage.dart';
 import '../database/app_database.dart';
 import '../database/seed_templates.dart';
@@ -35,7 +37,10 @@ final FutureProvider<List<JournalTemplate>> journalTemplatesProvider =
 final FutureProvider<Map<int, int>> templateUsageCountProvider =
     FutureProvider<Map<int, int>>((ref) async {
   final db = ref.read(appDatabaseProvider);
-  final entries = await db.select(db.appEntries).get();
+  final userId = ref.watch(currentUserIdProvider);
+  final entries = await (db.select(db.appEntries)
+        ..where((e) => e.userId.equals(userId)))
+      .get();
   final map = <int, int>{};
   for (final e in entries) {
     final id = e.templateId;
@@ -56,15 +61,60 @@ final templateFieldsProvider =
       .get();
 });
 
-/// Yerel kullanıcı id (auth backend'den gelene kadar sabit).
+/// Yerel kullanıcı id (giriş yokken veya eski veri ile uyumluluk).
 const int kLocalUserId = 1;
+
+/// Giriş yapan kullanıcıya göre yerel veri ayrımı. E-posta ile stabil id (aynı mail = aynı id).
+final Provider<int> currentUserIdProvider = Provider<int>((ref) {
+  final email = ref.watch(authNotifierProvider).email;
+  if (email == null || email.isEmpty) return kLocalUserId;
+  final id = email.hashCode.abs();
+  return id == 0 ? kLocalUserId : id;
+});
+
+const _kLegacyEntriesMigratedKey = 'legacy_entries_migrated';
+
+/// Tek seferlik: user_id = 1 olan tüm girişleri giriş yapan kullanıcıya taşır (test@frame.app vb. eski kayıtlar görünsün).
+final FutureProvider<void> legacyEntriesMigrationProvider =
+    FutureProvider<void>((ref) async {
+  final auth = ref.read(authNotifierProvider);
+  if (!auth.isAuthenticated || auth.email == null || auth.email!.isEmpty) {
+    return;
+  }
+  final userId = ref.read(currentUserIdProvider);
+  if (userId == kLocalUserId) return;
+
+  final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool(_kLegacyEntriesMigratedKey) == true) return;
+
+  final db = ref.read(appDatabaseProvider);
+  await (db.update(db.appEntries)..where((e) => e.userId.equals(kLocalUserId)))
+      .write(AppEntriesCompanion(userId: Value(userId)));
+
+  await prefs.setBool(_kLegacyEntriesMigratedKey, true);
+
+  ref.invalidate(recentEntriesProvider);
+  ref.invalidate(memoryEntriesProvider);
+  ref.invalidate(filteredMemoryEntriesProvider);
+  ref.invalidate(usedTemplatesProvider);
+  ref.invalidate(templateUsageCountProvider);
+  ref.invalidate(entryDetailProvider);
+  ref.invalidate(last30DaysEntryCountProvider);
+  ref.invalidate(last14DaysMoodProvider);
+  ref.invalidate(hourDistributionProvider);
+  ref.invalidate(thisWeekEntriesProvider);
+  ref.invalidate(pastYearsTodayEntriesProvider);
+  ref.invalidate(filmRollFramesProvider);
+});
 
 /// Son 3 giriş + şablon bilgisi (kart rengi/ikon için).
 final FutureProvider<List<(AppEntry, JournalTemplate?)>> recentEntriesProvider =
     FutureProvider<List<(AppEntry, JournalTemplate?)>>((ref) async {
       final db = ref.read(appDatabaseProvider);
+      final userId = ref.watch(currentUserIdProvider);
       final entries =
           await (db.select(db.appEntries)
+                ..where((e) => e.userId.equals(userId))
                 ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
                 ..limit(3))
               .get();
@@ -90,8 +140,10 @@ final FutureProvider<List<(AppEntry, JournalTemplate?)>> recentEntriesProvider =
 final FutureProvider<List<(AppEntry, JournalTemplate?)>> memoryEntriesProvider =
     FutureProvider<List<(AppEntry, JournalTemplate?)>>((ref) async {
       final db = ref.read(appDatabaseProvider);
+      final userId = ref.watch(currentUserIdProvider);
       final entries =
           await (db.select(db.appEntries)
+                ..where((e) => e.userId.equals(userId))
                 ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
                 ..limit(20))
               .get();
@@ -119,8 +171,10 @@ final filteredMemoryEntriesProvider =
       final filterId = params.$1;
       final limit = params.$2;
       final db = ref.read(appDatabaseProvider);
+      final userId = ref.watch(currentUserIdProvider);
       final cap = limit > 500 ? 500 : limit;
       final entries = await (db.select(db.appEntries)
+            ..where((e) => e.userId.equals(userId))
             ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
             ..limit(cap))
           .get();
@@ -164,7 +218,10 @@ class UsedTemplateChip {
 final FutureProvider<List<UsedTemplateChip>> usedTemplatesProvider =
     FutureProvider<List<UsedTemplateChip>>((ref) async {
       final db = ref.read(appDatabaseProvider);
-      final entries = await (db.select(db.appEntries)).get();
+      final userId = ref.watch(currentUserIdProvider);
+      final entries = await (db.select(db.appEntries)
+            ..where((e) => e.userId.equals(userId)))
+          .get();
       final hasFree = entries.any((e) => e.templateId == null);
       final templateIds = entries.map((e) => e.templateId).whereType<int>().toSet();
       final chips = <UsedTemplateChip>[];
@@ -215,11 +272,13 @@ class DefaultTemplateNotifier {
   }
 }
 
-/// Tek giriş detayı (id ile). Giriş bulunamazsa null döner.
+/// Tek giriş detayı (id ile). Giriş bulunamazsa veya başka kullanıcıya aitse null döner.
 final entryDetailProvider =
     FutureProvider.family<(AppEntry, JournalTemplate?)?, int>((ref, id) async {
   final db = ref.read(appDatabaseProvider);
-  final entries = await (db.select(db.appEntries)..where((e) => e.id.equals(id)))
+  final userId = ref.watch(currentUserIdProvider);
+  final entries = await (db.select(db.appEntries)
+        ..where((e) => e.id.equals(id) & e.userId.equals(userId)))
       .get();
   final entry = entries.isEmpty ? null : entries.single;
   if (entry == null) return null;
@@ -253,10 +312,12 @@ String _dateKey(DateTime d) {
 final FutureProvider<Map<String, int>> last30DaysEntryCountProvider =
     FutureProvider<Map<String, int>>((ref) async {
   final db = ref.read(appDatabaseProvider);
+  final userId = ref.watch(currentUserIdProvider);
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, now.day)
       .subtract(const Duration(days: 30));
   final entries = await (db.select(db.appEntries)
+        ..where((e) => e.userId.equals(userId))
         ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
         ..limit(500))
       .get();
@@ -273,10 +334,12 @@ final FutureProvider<Map<String, int>> last30DaysEntryCountProvider =
 final FutureProvider<List<(DateTime, String?)>> last14DaysMoodProvider =
     FutureProvider<List<(DateTime, String?)>>((ref) async {
   final db = ref.read(appDatabaseProvider);
+  final userId = ref.watch(currentUserIdProvider);
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, now.day)
       .subtract(const Duration(days: 14));
   final entries = await (db.select(db.appEntries)
+        ..where((e) => e.userId.equals(userId))
         ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
         ..limit(300))
       .get();
@@ -302,7 +365,10 @@ final FutureProvider<List<(DateTime, String?)>> last14DaysMoodProvider =
 final FutureProvider<Map<String, int>> hourDistributionProvider =
     FutureProvider<Map<String, int>>((ref) async {
   final db = ref.read(appDatabaseProvider);
-  final entries = await db.select(db.appEntries).get();
+  final userId = ref.watch(currentUserIdProvider);
+  final entries = await (db.select(db.appEntries)
+        ..where((e) => e.userId.equals(userId)))
+      .get();
   int morning = 0, afternoon = 0, night = 0;
   for (final e in entries) {
     final h = e.createdAt.hour;
@@ -321,6 +387,7 @@ final FutureProvider<Map<String, int>> hourDistributionProvider =
 final FutureProvider<Map<DateTime, (int, String?)>> thisWeekEntriesProvider =
     FutureProvider<Map<DateTime, (int, String?)>>((ref) async {
   final db = ref.read(appDatabaseProvider);
+  final userId = ref.watch(currentUserIdProvider);
   final now = DateTime.now();
   final weekday = now.weekday;
   final monday = DateTime(now.year, now.month, now.day)
@@ -328,6 +395,7 @@ final FutureProvider<Map<DateTime, (int, String?)>> thisWeekEntriesProvider =
   final sunday = monday.add(const Duration(days: 6));
   final end = DateTime(sunday.year, sunday.month, sunday.day, 23, 59, 59);
   final entries = await (db.select(db.appEntries)
+        ..where((e) => e.userId.equals(userId))
         ..orderBy([(e) => OrderingTerm.desc(e.createdAt)])
         ..limit(200))
       .get();
@@ -360,11 +428,13 @@ final FutureProvider<Map<DateTime, (int, String?)>> thisWeekEntriesProvider =
 final FutureProvider<List<AppEntry>> pastYearsTodayEntriesProvider =
     FutureProvider<List<AppEntry>>((ref) async {
   final db = ref.read(appDatabaseProvider);
+  final userId = ref.watch(currentUserIdProvider);
   final now = DateTime.now();
   final month = now.month;
   final day = now.day;
   final thisYear = now.year;
   final entries = await (db.select(db.appEntries)
+        ..where((e) => e.userId.equals(userId))
         ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
       .get();
   final list = <AppEntry>[];
@@ -383,7 +453,9 @@ final FutureProvider<List<AppEntry>> pastYearsTodayEntriesProvider =
 final FutureProvider<List<(DateTime, AppEntry)>> filmRollFramesProvider =
     FutureProvider<List<(DateTime, AppEntry)>>((ref) async {
   final db = ref.read(appDatabaseProvider);
+  final userId = ref.watch(currentUserIdProvider);
   final entries = await (db.select(db.appEntries)
+        ..where((e) => e.userId.equals(userId))
         ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
       .get();
   final byDay = <String, AppEntry>{};

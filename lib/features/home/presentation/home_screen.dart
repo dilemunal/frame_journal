@@ -17,6 +17,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(legacyEntriesMigrationProvider);
     final auth = ref.watch(authNotifierProvider);
     final firstName = _firstNameFromEmail(auth.email);
     final now = DateTime.now();
