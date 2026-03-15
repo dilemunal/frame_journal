@@ -435,6 +435,7 @@ class _TemplateSection extends ConsumerWidget {
       error: (e, s) => const SizedBox.shrink(),
       data: (list) {
         if (list.isEmpty) return const SizedBox.shrink();
+        final onHome = list.take(2).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -450,7 +451,7 @@ class _TemplateSection extends ConsumerWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  ...list.map((t) {
+                  ...onHome.map((t) {
                     final count = usage[t.id] ?? 0;
                     return Padding(
                       padding: const EdgeInsets.only(right: 10),
@@ -519,7 +520,7 @@ class _TemplateSection extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(right: 10),
                     child: InkWell(
-                      onTap: () => context.pushNamed('templateBuilder'),
+                      onTap: () => _showAddTemplateSheet(context, list),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         width: 88,
@@ -558,6 +559,175 @@ class _TemplateSection extends ConsumerWidget {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  static void _showAddTemplateSheet(
+    BuildContext context,
+    List<JournalTemplate> allTemplates,
+  ) {
+    final rest = allTemplates.skip(2).toList();
+    final screenHeight = MediaQuery.of(context).size.height;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              constraints: BoxConstraints(maxHeight: 0.6 * screenHeight),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.close, color: Colors.white.withValues(alpha: 0.9)),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Şablonlar',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'Tüm şablonlar veya yeni oluştur',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (rest.isNotEmpty) ...[
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                ...rest.map((t) {
+                                  return SizedBox(
+                                    width: 88,
+                                    height: 80,
+                                    child: InkWell(
+                                      onTap: () {
+                                        Navigator.of(ctx).pop();
+                                        context.pushNamed(
+                                          'entryNew',
+                                          queryParameters: {'templateId': '${t.id}'},
+                                        );
+                                      },
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.13),
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(t.icon, style: const TextStyle(fontSize: 22)),
+                                            const SizedBox(height: 4),
+                                            Expanded(
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  t.name,
+                                                  textAlign: TextAlign.center,
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: Colors.white.withValues(alpha: 0.7),
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+                          InkWell(
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              context.pushNamed('templateBuilder');
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.11),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_rounded,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Yeni şablon oluştur',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
