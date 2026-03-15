@@ -42,9 +42,13 @@ final Provider<int?> currentUserIdProvider = Provider<int?>((ref) {
   return ref.watch(authNotifierProvider).userId;
 });
 
+/// Sync sonrası entry provider'ların yeniden hesaplanması için (CircularDependencyError önlemek).
+final StateProvider<int> syncTriggerProvider = StateProvider<int>((ref) => 0);
+
 /// Şablon bazlı entry sayısı. templateId -> count. Sadece templateId dolu entry'ler.
 final FutureProvider<Map<int, int>> templateUsageCountProvider =
     FutureProvider<Map<int, int>>((ref) async {
+  ref.watch(syncTriggerProvider);
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return {};
   final db = ref.read(appDatabaseProvider);
@@ -74,6 +78,7 @@ final templateFieldsProvider =
 /// Son 3 giriş + şablon bilgisi (kart rengi/ikon için).
 final FutureProvider<List<(AppEntry, JournalTemplate?)>> recentEntriesProvider =
     FutureProvider<List<(AppEntry, JournalTemplate?)>>((ref) async {
+      ref.watch(syncTriggerProvider);
       final userId = ref.watch(currentUserIdProvider);
       if (userId == null) return [];
       final db = ref.read(appDatabaseProvider);
@@ -104,6 +109,7 @@ final FutureProvider<List<(AppEntry, JournalTemplate?)>> recentEntriesProvider =
 /// Hafıza kartı: son 20 giriş + şablon (kart listesi için).
 final FutureProvider<List<(AppEntry, JournalTemplate?)>> memoryEntriesProvider =
     FutureProvider<List<(AppEntry, JournalTemplate?)>>((ref) async {
+      ref.watch(syncTriggerProvider);
       final userId = ref.watch(currentUserIdProvider);
       if (userId == null) return [];
       final db = ref.read(appDatabaseProvider);
@@ -134,6 +140,7 @@ final FutureProvider<List<(AppEntry, JournalTemplate?)>> memoryEntriesProvider =
 /// Filtrelenebilir hafıza: (filterId, limit). templateId null = tümü, -1 = serbest, >0 = şablon.
 final filteredMemoryEntriesProvider =
     FutureProvider.family<List<(AppEntry, JournalTemplate?)>, (int?, int)>((ref, params) async {
+      ref.watch(syncTriggerProvider);
       final userId = ref.watch(currentUserIdProvider);
       if (userId == null) return [];
       final filterId = params.$1;
@@ -184,6 +191,7 @@ class UsedTemplateChip {
 
 final FutureProvider<List<UsedTemplateChip>> usedTemplatesProvider =
     FutureProvider<List<UsedTemplateChip>>((ref) async {
+      ref.watch(syncTriggerProvider);
       final userId = ref.watch(currentUserIdProvider);
       if (userId == null) return [];
       final db = ref.read(appDatabaseProvider);
@@ -243,6 +251,7 @@ class DefaultTemplateNotifier {
 /// Tek giriş detayı (id ile). Giriş bulunamazsa veya başka kullanıcıya aitse null döner.
 final entryDetailProvider =
     FutureProvider.family<(AppEntry, JournalTemplate?)?, int>((ref, id) async {
+  ref.watch(syncTriggerProvider);
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return null;
   final db = ref.read(appDatabaseProvider);
@@ -280,6 +289,7 @@ String _dateKey(DateTime d) {
 /// Son 30 günün her günü için entry sayısı. Key: "YYYY-MM-DD", value: count.
 final FutureProvider<Map<String, int>> last30DaysEntryCountProvider =
     FutureProvider<Map<String, int>>((ref) async {
+  ref.watch(syncTriggerProvider);
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return {};
   final db = ref.read(appDatabaseProvider);
@@ -303,6 +313,7 @@ final FutureProvider<Map<String, int>> last30DaysEntryCountProvider =
 /// Son 14 günün her günü için o günün son entry'sinin mood'u. (tarih, mood emoji); yoksa null.
 final FutureProvider<List<(DateTime, String?)>> last14DaysMoodProvider =
     FutureProvider<List<(DateTime, String?)>>((ref) async {
+  ref.watch(syncTriggerProvider);
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return [];
   final db = ref.read(appDatabaseProvider);
@@ -335,6 +346,7 @@ final FutureProvider<List<(DateTime, String?)>> last14DaysMoodProvider =
 /// Saat dağılımı: morning 6–12, afternoon 12–18, night 18–6. AppEntries createdAt.hour'a göre.
 final FutureProvider<Map<String, int>> hourDistributionProvider =
     FutureProvider<Map<String, int>>((ref) async {
+  ref.watch(syncTriggerProvider);
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return {'morning': 0, 'afternoon': 0, 'night': 0};
   final db = ref.read(appDatabaseProvider);
@@ -358,6 +370,7 @@ final FutureProvider<Map<String, int>> hourDistributionProvider =
 /// Bu haftanın her günü (Pazartesi–Pazar) için (entry sayısı, mood). Key: günün 00:00 DateTime.
 final FutureProvider<Map<DateTime, (int, String?)>> thisWeekEntriesProvider =
     FutureProvider<Map<DateTime, (int, String?)>>((ref) async {
+  ref.watch(syncTriggerProvider);
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return {};
   final db = ref.read(appDatabaseProvider);
@@ -400,6 +413,7 @@ final FutureProvider<Map<DateTime, (int, String?)>> thisWeekEntriesProvider =
 /// Geçmişten bugün: bu ay ve gün ile eşleşen geçmiş yıllardaki entry'ler. En fazla 3, yeniden eskiye.
 final FutureProvider<List<AppEntry>> pastYearsTodayEntriesProvider =
     FutureProvider<List<AppEntry>>((ref) async {
+  ref.watch(syncTriggerProvider);
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return [];
   final db = ref.read(appDatabaseProvider);
@@ -426,6 +440,7 @@ final FutureProvider<List<AppEntry>> pastYearsTodayEntriesProvider =
 /// Film Roll: her gün için tek kare (o günün en son entry'si). Tarihe göre yeniden eskiye.
 final FutureProvider<List<(DateTime, AppEntry)>> filmRollFramesProvider =
     FutureProvider<List<(DateTime, AppEntry)>>((ref) async {
+  ref.watch(syncTriggerProvider);
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return [];
   final db = ref.read(appDatabaseProvider);

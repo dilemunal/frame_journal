@@ -78,6 +78,9 @@ class AuthNotifier extends Notifier<AuthState> {
         email: email,
         userId: userId,
       );
+      // ignore: avoid_print
+      print('Auth state userId=${state.userId}');
+      unawaited(_runInitialSync());
     } on DioException catch (_) {
       await _tokenStorage.clearAll();
       state = const AuthState(isAuthenticated: false);
@@ -140,6 +143,8 @@ class AuthNotifier extends Notifier<AuthState> {
       email: email,
       userId: userId,
     );
+    // ignore: avoid_print
+    print('Auth state userId=${state.userId}');
     unawaited(_runInitialSync());
   }
 
@@ -150,19 +155,17 @@ class AuthNotifier extends Notifier<AuthState> {
       final db = ref.read(appDatabaseProvider);
       final remote = ref.read(entryRemoteServiceProvider);
       await remote.syncToLocal(db, userId);
-      ref.invalidate(recentEntriesProvider);
-      ref.invalidate(memoryEntriesProvider);
-      ref.invalidate(filteredMemoryEntriesProvider);
-      ref.invalidate(usedTemplatesProvider);
-      ref.invalidate(templateUsageCountProvider);
-      ref.invalidate(entryDetailProvider);
-      ref.invalidate(last30DaysEntryCountProvider);
-      ref.invalidate(last14DaysMoodProvider);
-      ref.invalidate(hourDistributionProvider);
-      ref.invalidate(thisWeekEntriesProvider);
-      ref.invalidate(pastYearsTodayEntriesProvider);
-      ref.invalidate(filmRollFramesProvider);
-    } catch (_) {}
+      // Bump trigger so entry providers (they watch syncTriggerProvider) re-fetch. No invalidate = no CircularDependencyError.
+      ref.read(syncTriggerProvider.notifier).state++;
+    } catch (e, st) {
+      assert(() {
+        // ignore: avoid_print
+        print('_runInitialSync error: $e');
+        // ignore: avoid_print
+        print(st);
+        return true;
+      }());
+    }
   }
 
   Future<void> loginWithGoogle() async {
@@ -223,6 +226,8 @@ class AuthNotifier extends Notifier<AuthState> {
         email: googleUser.email,
         userId: userId,
       );
+      // ignore: avoid_print
+      print('Auth state userId=${state.userId}');
       unawaited(_runInitialSync());
       assert(() {
         // ignore: avoid_print
@@ -298,6 +303,8 @@ class AuthNotifier extends Notifier<AuthState> {
       email: email ?? appleEmail,
       userId: userId,
     );
+    // ignore: avoid_print
+    print('Auth state userId=${state.userId}');
     unawaited(_runInitialSync());
   }
 
