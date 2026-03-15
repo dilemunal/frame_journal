@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../core/auth/token_storage.dart';
 import '../../../core/network/api_client.dart';
@@ -50,15 +53,47 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> _checkPersistedLogin() async {
     final token = await _tokenStorage.readAccessToken();
-    final userId = await _tokenStorage.readUserId();
-    final email = await _tokenStorage.readEmail();
-    if (token != null && token.isNotEmpty) {
+    if (token == null || token.isEmpty) return;
+
+    try {
+      final response = await _apiClient.get('/api/v1/user/me');
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        await _tokenStorage.clearAll();
+        state = const AuthState(isAuthenticated: false);
+        return;
+      }
+      final user = data['user'] as Map<String, dynamic>?;
+      if (user == null) {
+        await _tokenStorage.clearAll();
+        state = const AuthState(isAuthenticated: false);
+        return;
+      }
+      final userId = _userIdFromDynamic(user['id']);
+      final email = _stringOrNull(user['email']);
+      await _tokenStorage.saveUserId(userId);
+      await _tokenStorage.saveEmail(email);
       state = AuthState(
         isAuthenticated: true,
         email: email,
         userId: userId,
       );
+    } on DioException catch (_) {
+      await _tokenStorage.clearAll();
+      state = const AuthState(isAuthenticated: false);
+    } catch (_) {
+      await _tokenStorage.clearAll();
+      state = const AuthState(isAuthenticated: false);
     }
+  }
+
+  /// Backend bazen id'yi num döner; güvenli int dönüşümü.
+  int? _userIdFromDynamic(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    final s = value.toString();
+    return int.tryParse(s);
   }
 
   Future<void> loginWithEmail({
@@ -96,7 +131,7 @@ class AuthNotifier extends Notifier<AuthState> {
     );
 
     final userObj = data['user'] as Map<String, dynamic>?;
-    final userId = userObj?['id'] as int?;
+    final userId = userObj != null ? _userIdFromDynamic(userObj['id']) : null;
     await _tokenStorage.saveUserId(userId);
     await _tokenStorage.saveEmail(email);
 
@@ -105,6 +140,29 @@ class AuthNotifier extends Notifier<AuthState> {
       email: email,
       userId: userId,
     );
+    unawaited(_runInitialSync());
+  }
+
+  Future<void> _runInitialSync() async {
+    final userId = state.userId;
+    if (userId == null) return;
+    try {
+      final db = ref.read(appDatabaseProvider);
+      final remote = ref.read(entryRemoteServiceProvider);
+      await remote.syncToLocal(db, userId);
+      ref.invalidate(recentEntriesProvider);
+      ref.invalidate(memoryEntriesProvider);
+      ref.invalidate(filteredMemoryEntriesProvider);
+      ref.invalidate(usedTemplatesProvider);
+      ref.invalidate(templateUsageCountProvider);
+      ref.invalidate(entryDetailProvider);
+      ref.invalidate(last30DaysEntryCountProvider);
+      ref.invalidate(last14DaysMoodProvider);
+      ref.invalidate(hourDistributionProvider);
+      ref.invalidate(thisWeekEntriesProvider);
+      ref.invalidate(pastYearsTodayEntriesProvider);
+      ref.invalidate(filmRollFramesProvider);
+    } catch (_) {}
   }
 
   Future<void> loginWithGoogle() async {
@@ -156,7 +214,7 @@ class AuthNotifier extends Notifier<AuthState> {
       );
 
       final userObj = data['user'] as Map<String, dynamic>?;
-      final userId = userObj?['id'] as int?;
+      final userId = userObj != null ? _userIdFromDynamic(userObj['id']) : null;
       await _tokenStorage.saveUserId(userId);
       await _tokenStorage.saveEmail(googleUser.email);
 
@@ -165,6 +223,7 @@ class AuthNotifier extends Notifier<AuthState> {
         email: googleUser.email,
         userId: userId,
       );
+      unawaited(_runInitialSync());
       assert(() {
         // ignore: avoid_print
         print(
@@ -186,7 +245,25 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> loginWithApple() async {
-    final response = await _apiClient.post('/api/auth/apple-login');
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+    );
+    final identityToken = credential.identityToken;
+    if (identityToken == null || identityToken.isEmpty) {
+      throw Exception('Apple hesap bilgisi alınamadı. Lütfen tekrar deneyin.');
+    }
+
+    final response = await _apiClient.post(
+      '/api/auth/apple-login',
+      data: <String, dynamic>{
+        'identityToken': identityToken,
+        'authorizationCode': credential.authorizationCode,
+      },
+    );
+
     final data = response.data is Map<String, dynamic>
         ? response.data as Map<String, dynamic>
         : null;
@@ -209,7 +286,19 @@ class AuthNotifier extends Notifier<AuthState> {
       refreshToken: refreshToken,
     );
 
-    state = state.copyWith(isAuthenticated: true);
+    final userObj = data['user'] as Map<String, dynamic>?;
+    final userId = userObj != null ? _userIdFromDynamic(userObj['id']) : null;
+    final email = userObj != null ? _stringOrNull(userObj['email']) : null;
+    final appleEmail = credential.email;
+    await _tokenStorage.saveUserId(userId);
+    await _tokenStorage.saveEmail(email ?? appleEmail);
+
+    state = AuthState(
+      isAuthenticated: true,
+      email: email ?? appleEmail,
+      userId: userId,
+    );
+    unawaited(_runInitialSync());
   }
 
   Future<void> logout() async {
@@ -217,6 +306,14 @@ class AuthNotifier extends Notifier<AuthState> {
       final googleSignIn = GoogleSignIn();
       await googleSignIn.signOut();
     } catch (_) {}
+
+    final currentUserId = state.userId;
+    if (currentUserId != null) {
+      try {
+        final db = ref.read(appDatabaseProvider);
+        await (db.delete(db.appEntries)..where((e) => e.userId.equals(currentUserId))).go();
+      } catch (_) {}
+    }
 
     final token = await _tokenStorage.readAccessToken();
     if (token != null) {

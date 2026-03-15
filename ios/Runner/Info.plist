@@ -90,6 +90,16 @@
 				<string>com.googleusercontent.apps.325203630340-2i6816d9hg3nj445cjitdtbflrt5oi06</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.dilem.frameJournal</string>
+			</array>
+			<key>CFBundleIdentifier</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		</dict>
 	</array>
 </dict>
 </plist>
