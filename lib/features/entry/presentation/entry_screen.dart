@@ -57,6 +57,8 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
   String _templateNotes = '';
   Timer? _draftTimer;
   int? _editTemplateId;
+  /// Zaman kapsülü: null = kilitsiz; set = bu tarihe kadar içerik gizli.
+  DateTime? _unlockAt;
 
   @override
   void initState() {
@@ -79,6 +81,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
       _editTemplateId = entry.templateId;
       _textController.text = entry.freeText ?? '';
       _moodValue = _moodFromEmoji(entry.mood);
+      _unlockAt = entry.unlockAt;
       if (entry.valuesJson != null && entry.valuesJson!.isNotEmpty) {
         try {
           final root = jsonDecode(entry.valuesJson!) as Map<String, dynamic>?;
@@ -104,6 +107,14 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
       case '🔥': return 0.95;
       default: return 0.5;
     }
+  }
+
+  static String _formatUnlockDate(DateTime d) {
+    const months = [
+      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
   @override
@@ -348,6 +359,9 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                 locationJson: locationJson != null
                     ? Value(locationJson)
                     : const Value.absent(),
+                unlockAt: _unlockAt != null
+                    ? Value(_unlockAt)
+                    : const Value.absent(),
               ),
             );
       } catch (_) {
@@ -361,6 +375,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
       ref.invalidate(entryDetailProvider(widget.editEntryId!));
       ref.invalidate(recentEntriesProvider);
       ref.invalidate(memoryEntriesProvider);
+      ref.invalidate(filmRollFramesProvider);
       ref.invalidate(filteredMemoryEntriesProvider);
       ref.invalidate(usedTemplatesProvider);
       ref.invalidate(templateUsageCountProvider);
@@ -388,6 +403,9 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                   ? Value(locationJson)
                   : const Value.absent(),
               createdAt: createdAt,
+              unlockAt: _unlockAt != null
+                  ? Value(_unlockAt)
+                  : const Value.absent(),
             ),
           );
     } catch (_) {
@@ -402,6 +420,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
     await ref.read(rhythmCompletionsProvider.notifier).markFromEntryTime(createdAt);
     ref.invalidate(recentEntriesProvider);
     ref.invalidate(memoryEntriesProvider);
+    ref.invalidate(filmRollFramesProvider);
     ref.invalidate(last30DaysEntryCountProvider);
     ref.invalidate(last14DaysMoodProvider);
     ref.invalidate(hourDistributionProvider);
@@ -651,7 +670,109 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
                                 .fadeIn(duration: 350.ms),
                           ),
                         );
-                      }),
+                      }                      ),
+                      const SizedBox(height: 10),
+                      GlassCard(
+                        opacity: 0.1,
+                        borderRadius: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.lock_clock_rounded,
+                                  size: 20,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Zaman kapsülü',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                Switch(
+                                  value: _unlockAt != null,
+                                  onChanged: (on) {
+                                    setState(() {
+                                      if (on) {
+                                        _unlockAt = DateTime.now().add(
+                                          const Duration(days: 365),
+                                        );
+                                      } else {
+                                        _unlockAt = null;
+                                      }
+                                    });
+                                  },
+                                  activeColor: Colors.white,
+                                ),
+                              ],
+                            ),
+                            if (_unlockAt != null) ...[
+                              const SizedBox(height: 8),
+                              InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: _unlockAt!,
+                                    firstDate: DateTime.now().add(const Duration(days: 1)),
+                                    lastDate: DateTime.now().add(const Duration(days: 3650)),
+                                  );
+                                  if (picked != null && mounted) {
+                                    setState(() => _unlockAt = DateTime(
+                                      picked.year,
+                                      picked.month,
+                                      picked.day,
+                                      _unlockAt!.hour,
+                                      _unlockAt!.minute,
+                                    ));
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(10),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        _formatUnlockDate(_unlockAt!),
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.85),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Icon(
+                                        Icons.calendar_today_rounded,
+                                        size: 16,
+                                        color: Colors.white.withValues(alpha: 0.6),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Bu tarihe kadar içerik sadece senin için gizli kalacak.',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       GlassCard(
                         opacity: 0.08,
                         borderRadius: 20,

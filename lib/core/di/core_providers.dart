@@ -378,3 +378,25 @@ final FutureProvider<List<AppEntry>> pastYearsTodayEntriesProvider =
   }
   return list;
 });
+
+/// Film Roll: her gün için tek kare (o günün en son entry'si). Tarihe göre yeniden eskiye.
+final FutureProvider<List<(DateTime, AppEntry)>> filmRollFramesProvider =
+    FutureProvider<List<(DateTime, AppEntry)>>((ref) async {
+  final db = ref.read(appDatabaseProvider);
+  final entries = await (db.select(db.appEntries)
+        ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
+      .get();
+  final byDay = <String, AppEntry>{};
+  for (final e in entries) {
+    final key = _dateKey(e.createdAt);
+    if (!byDay.containsKey(key)) byDay[key] = e;
+  }
+  final days = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
+  return days
+      .map((k) {
+        final e = byDay[k]!;
+        final dt = DateTime(e.createdAt.year, e.createdAt.month, e.createdAt.day);
+        return (dt, e);
+      })
+      .toList();
+});

@@ -9,6 +9,7 @@ import '../../features/entry/presentation/entry_screen.dart';
 import '../../features/hafiza/presentation/hafiza_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/film_roll/presentation/film_roll_screen.dart';
 import '../../features/ritim/presentation/ritim_screen.dart';
 import '../../features/templates/presentation/template_builder_screen.dart';
 import 'main_shell.dart';
@@ -162,6 +163,15 @@ GoRouter appRouter(Ref ref) {
                 path: '/hafiza',
                 name: 'hafiza',
                 builder: (context, state) => const HafizaScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: '/film-roll',
+                name: 'filmRoll',
+                builder: (context, state) => const FilmRollScreen(),
               ),
             ],
           ),

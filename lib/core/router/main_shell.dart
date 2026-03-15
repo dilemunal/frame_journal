@@ -89,6 +89,12 @@ class _GlassBottomNav extends StatelessWidget {
                       selected: index == 2,
                       onTap: () => onTap(2),
                     ),
+                    _NavItem(
+                      label: 'Film',
+                      icon: Icons.movie_filter_rounded,
+                      selected: index == 3,
+                      onTap: () => onTap(3),
+                    ),
                   ],
                 ),
               ),

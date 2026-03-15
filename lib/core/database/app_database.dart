@@ -125,6 +125,8 @@ class AppEntries extends Table {
   TextColumn get locationJson => text().nullable()();
   TextColumn get weatherJson => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+  /// Zaman kapsülü: bu tarihe kadar içerik gizlenir. null = her zaman görünür.
+  DateTimeColumn get unlockAt => dateTime().named('unlock_at').nullable()();
 }
 
 /// Günlük ritim tamamlanma kaydı (Ritim ekranı). localDate: YYYY-MM-DD, slotKey: morning|noon|evening
@@ -153,7 +155,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'journal'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -169,6 +171,9 @@ class AppDatabase extends _$AppDatabase {
           if (from < 4) {
             await migrator.addColumn(
                 userSettings, userSettings.defaultTemplateId);
+          }
+          if (from < 5) {
+            await migrator.addColumn(appEntries, appEntries.unlockAt);
           }
         },
       );

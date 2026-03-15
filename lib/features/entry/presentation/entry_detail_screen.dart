@@ -80,6 +80,7 @@ class _Body extends ConsumerWidget {
     ref.invalidate(entryDetailProvider(entry.id));
     ref.invalidate(recentEntriesProvider);
     ref.invalidate(memoryEntriesProvider);
+    ref.invalidate(filmRollFramesProvider);
     ref.invalidate(filteredMemoryEntriesProvider);
     ref.invalidate(usedTemplatesProvider);
     ref.invalidate(templateUsageCountProvider);
@@ -100,6 +101,8 @@ class _Body extends ConsumerWidget {
     final fieldsAsync = template == null
         ? const AsyncValue<List<TemplateField>>.data(<TemplateField>[])
         : ref.watch(templateFieldsProvider(template!.id));
+    final isLocked = entry.unlockAt != null &&
+        DateTime.now().isBefore(entry.unlockAt!);
 
     return CustomScrollView(
       slivers: [
@@ -156,7 +159,55 @@ class _Body extends ConsumerWidget {
             ),
           ),
         ),
-        SliverToBoxAdapter(
+        if (isLocked)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.lock_clock_rounded,
+                      size: 72,
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Zaman kapsülü',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Bu giriş ${_date(entry.unlockAt!)} tarihinde açılacak.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.65),
+                        fontSize: 15,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Geçmişe mektup — o gün gelene kadar bekleyeceksin.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
             child: Column(

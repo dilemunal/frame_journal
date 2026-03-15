@@ -2837,6 +2837,17 @@ class $AppEntriesTable extends AppEntries
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _unlockAtMeta = const VerificationMeta(
+    'unlockAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> unlockAt = GeneratedColumn<DateTime>(
+    'unlock_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2849,6 +2860,7 @@ class $AppEntriesTable extends AppEntries
     locationJson,
     weatherJson,
     createdAt,
+    unlockAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2929,6 +2941,12 @@ class $AppEntriesTable extends AppEntries
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('unlock_at')) {
+      context.handle(
+        _unlockAtMeta,
+        unlockAt.isAcceptableOrUnknown(data['unlock_at']!, _unlockAtMeta),
+      );
+    }
     return context;
   }
 
@@ -2978,6 +2996,10 @@ class $AppEntriesTable extends AppEntries
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      unlockAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}unlock_at'],
+      ),
     );
   }
 
@@ -2998,6 +3020,9 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
   final String? locationJson;
   final String? weatherJson;
   final DateTime createdAt;
+
+  /// Zaman kapsülü: bu tarihe kadar içerik gizlenir. null = her zaman görünür.
+  final DateTime? unlockAt;
   const AppEntry({
     required this.id,
     required this.userId,
@@ -3009,6 +3034,7 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
     this.locationJson,
     this.weatherJson,
     required this.createdAt,
+    this.unlockAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3037,6 +3063,9 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
       map['weather_json'] = Variable<String>(weatherJson);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || unlockAt != null) {
+      map['unlock_at'] = Variable<DateTime>(unlockAt);
+    }
     return map;
   }
 
@@ -3064,6 +3093,9 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
           ? const Value.absent()
           : Value(weatherJson),
       createdAt: Value(createdAt),
+      unlockAt: unlockAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(unlockAt),
     );
   }
 
@@ -3083,6 +3115,7 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
       locationJson: serializer.fromJson<String?>(json['locationJson']),
       weatherJson: serializer.fromJson<String?>(json['weatherJson']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      unlockAt: serializer.fromJson<DateTime?>(json['unlockAt']),
     );
   }
   @override
@@ -3099,6 +3132,7 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
       'locationJson': serializer.toJson<String?>(locationJson),
       'weatherJson': serializer.toJson<String?>(weatherJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'unlockAt': serializer.toJson<DateTime?>(unlockAt),
     };
   }
 
@@ -3113,6 +3147,7 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
     Value<String?> locationJson = const Value.absent(),
     Value<String?> weatherJson = const Value.absent(),
     DateTime? createdAt,
+    Value<DateTime?> unlockAt = const Value.absent(),
   }) => AppEntry(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -3124,6 +3159,7 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
     locationJson: locationJson.present ? locationJson.value : this.locationJson,
     weatherJson: weatherJson.present ? weatherJson.value : this.weatherJson,
     createdAt: createdAt ?? this.createdAt,
+    unlockAt: unlockAt.present ? unlockAt.value : this.unlockAt,
   );
   AppEntry copyWithCompanion(AppEntriesCompanion data) {
     return AppEntry(
@@ -3145,6 +3181,7 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
           ? data.weatherJson.value
           : this.weatherJson,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      unlockAt: data.unlockAt.present ? data.unlockAt.value : this.unlockAt,
     );
   }
 
@@ -3160,7 +3197,8 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
           ..write('valuesJson: $valuesJson, ')
           ..write('locationJson: $locationJson, ')
           ..write('weatherJson: $weatherJson, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('unlockAt: $unlockAt')
           ..write(')'))
         .toString();
   }
@@ -3177,6 +3215,7 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
     locationJson,
     weatherJson,
     createdAt,
+    unlockAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -3191,7 +3230,8 @@ class AppEntry extends DataClass implements Insertable<AppEntry> {
           other.valuesJson == this.valuesJson &&
           other.locationJson == this.locationJson &&
           other.weatherJson == this.weatherJson &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.unlockAt == this.unlockAt);
 }
 
 class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
@@ -3205,6 +3245,7 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
   final Value<String?> locationJson;
   final Value<String?> weatherJson;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> unlockAt;
   const AppEntriesCompanion({
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
@@ -3216,6 +3257,7 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
     this.locationJson = const Value.absent(),
     this.weatherJson = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.unlockAt = const Value.absent(),
   });
   AppEntriesCompanion.insert({
     this.id = const Value.absent(),
@@ -3228,6 +3270,7 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
     this.locationJson = const Value.absent(),
     this.weatherJson = const Value.absent(),
     required DateTime createdAt,
+    this.unlockAt = const Value.absent(),
   }) : userId = Value(userId),
        createdAt = Value(createdAt);
   static Insertable<AppEntry> custom({
@@ -3241,6 +3284,7 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
     Expression<String>? locationJson,
     Expression<String>? weatherJson,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? unlockAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3253,6 +3297,7 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
       if (locationJson != null) 'location_json': locationJson,
       if (weatherJson != null) 'weather_json': weatherJson,
       if (createdAt != null) 'created_at': createdAt,
+      if (unlockAt != null) 'unlock_at': unlockAt,
     });
   }
 
@@ -3267,6 +3312,7 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
     Value<String?>? locationJson,
     Value<String?>? weatherJson,
     Value<DateTime>? createdAt,
+    Value<DateTime?>? unlockAt,
   }) {
     return AppEntriesCompanion(
       id: id ?? this.id,
@@ -3279,6 +3325,7 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
       locationJson: locationJson ?? this.locationJson,
       weatherJson: weatherJson ?? this.weatherJson,
       createdAt: createdAt ?? this.createdAt,
+      unlockAt: unlockAt ?? this.unlockAt,
     );
   }
 
@@ -3315,6 +3362,9 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (unlockAt.present) {
+      map['unlock_at'] = Variable<DateTime>(unlockAt.value);
+    }
     return map;
   }
 
@@ -3330,7 +3380,8 @@ class AppEntriesCompanion extends UpdateCompanion<AppEntry> {
           ..write('valuesJson: $valuesJson, ')
           ..write('locationJson: $locationJson, ')
           ..write('weatherJson: $weatherJson, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('unlockAt: $unlockAt')
           ..write(')'))
         .toString();
   }
@@ -6153,6 +6204,7 @@ typedef $$AppEntriesTableCreateCompanionBuilder =
       Value<String?> locationJson,
       Value<String?> weatherJson,
       required DateTime createdAt,
+      Value<DateTime?> unlockAt,
     });
 typedef $$AppEntriesTableUpdateCompanionBuilder =
     AppEntriesCompanion Function({
@@ -6166,6 +6218,7 @@ typedef $$AppEntriesTableUpdateCompanionBuilder =
       Value<String?> locationJson,
       Value<String?> weatherJson,
       Value<DateTime> createdAt,
+      Value<DateTime?> unlockAt,
     });
 
 final class $$AppEntriesTableReferences
@@ -6243,6 +6296,11 @@ class $$AppEntriesTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get unlockAt => $composableBuilder(
+    column: $table.unlockAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6324,6 +6382,11 @@ class $$AppEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get unlockAt => $composableBuilder(
+    column: $table.unlockAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$JournalTemplatesTableOrderingComposer get templateId {
     final $$JournalTemplatesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6390,6 +6453,9 @@ class $$AppEntriesTableAnnotationComposer
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
+  GeneratedColumn<DateTime> get unlockAt =>
+      $composableBuilder(column: $table.unlockAt, builder: (column) => column);
+
   $$JournalTemplatesTableAnnotationComposer get templateId {
     final $$JournalTemplatesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -6452,6 +6518,7 @@ class $$AppEntriesTableTableManager
                 Value<String?> locationJson = const Value.absent(),
                 Value<String?> weatherJson = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> unlockAt = const Value.absent(),
               }) => AppEntriesCompanion(
                 id: id,
                 userId: userId,
@@ -6463,6 +6530,7 @@ class $$AppEntriesTableTableManager
                 locationJson: locationJson,
                 weatherJson: weatherJson,
                 createdAt: createdAt,
+                unlockAt: unlockAt,
               ),
           createCompanionCallback:
               ({
@@ -6476,6 +6544,7 @@ class $$AppEntriesTableTableManager
                 Value<String?> locationJson = const Value.absent(),
                 Value<String?> weatherJson = const Value.absent(),
                 required DateTime createdAt,
+                Value<DateTime?> unlockAt = const Value.absent(),
               }) => AppEntriesCompanion.insert(
                 id: id,
                 userId: userId,
@@ -6487,6 +6556,7 @@ class $$AppEntriesTableTableManager
                 locationJson: locationJson,
                 weatherJson: weatherJson,
                 createdAt: createdAt,
+                unlockAt: unlockAt,
               ),
           withReferenceMapper: (p0) => p0
               .map(
