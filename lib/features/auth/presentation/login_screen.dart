@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -41,8 +42,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      final raw = e.toString();
-      final message = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+      final String message;
+      if (e is DioException) {
+        switch (e.response?.statusCode) {
+          case 401:
+            message = 'E-posta veya şifre hatalı.';
+          case 429:
+            message = 'Çok fazla deneme. Lütfen bir dakika bekleyin.';
+          case null:
+            message = 'Sunucuya bağlanılamadı. Backend çalışıyor mu?';
+          default:
+            message = 'Sunucu hatası (${e.response?.statusCode}).';
+        }
+      } else {
+        final raw = e.toString();
+        message = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
@@ -83,8 +98,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       debugPrint('[LoginScreen] Google login error: $e');
       debugPrint('[LoginScreen] $st');
       if (!mounted) return;
-      final raw = e.toString();
-      final message = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+      final String message;
+      if (e is DioException) {
+        switch (e.response?.statusCode) {
+          case 401:
+            message = 'E-posta veya şifre hatalı.';
+          case 429:
+            message = 'Çok fazla deneme. Lütfen bir dakika bekleyin.';
+          case null:
+            message = 'Sunucuya bağlanılamadı. Backend çalışıyor mu?';
+          default:
+            message = 'Sunucu hatası (${e.response?.statusCode}).';
+        }
+      } else {
+        final raw = e.toString();
+        message = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
