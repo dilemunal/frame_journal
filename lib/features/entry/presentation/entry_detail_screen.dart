@@ -248,10 +248,7 @@ class _Body extends ConsumerWidget {
                                       final path = templatePhotos[index];
                                       return ClipRRect(
                                         borderRadius: BorderRadius.circular(12),
-                                        child: Image.file(
-                                          File(path),
-                                          fit: BoxFit.cover,
-                                        ),
+                                        child: _safeFileImage(path),
                                       );
                                     },
                                   ),
@@ -379,10 +376,13 @@ class _Body extends ConsumerWidget {
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
             ),
-            itemBuilder: (context, index) => ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(File(photos[index]), fit: BoxFit.cover),
-            ),
+            itemBuilder: (context, index) {
+              final path = photos[index];
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: _safeFileImage(path),
+              );
+            },
           ),
         );
       default:
@@ -497,6 +497,22 @@ class _Body extends ConsumerWidget {
       }
     } catch (_) {}
     return (0, 10);
+  }
+
+  static Widget _safeFileImage(String path, {BoxFit fit = BoxFit.cover}) {
+    if (path.trim().isEmpty) return _brokenImagePlaceholder();
+    final file = File(path);
+    if (!file.existsSync()) return _brokenImagePlaceholder();
+    return Image.file(file, fit: fit);
+  }
+
+  static Widget _brokenImagePlaceholder() {
+    return Container(
+      color: Colors.white.withValues(alpha: 0.08),
+      child: Center(
+        child: Icon(Icons.broken_image_outlined, color: Colors.white.withValues(alpha: 0.4), size: 40),
+      ),
+    );
   }
 
   static String _unitFor(TemplateField field) {

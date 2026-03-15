@@ -470,7 +470,7 @@ class _TemplateFieldInputState extends ConsumerState<TemplateFieldInput> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.file(File(path), fit: BoxFit.cover),
+                    _safeFileImage(path),
                     Positioned(
                       right: 6,
                       top: 6,
@@ -509,6 +509,22 @@ class _TemplateFieldInputState extends ConsumerState<TemplateFieldInput> {
       widget.onChanged([...current, ...xs.map((e) => e.path)]);
     } catch (_) {}
   }
+}
+
+Widget _safeFileImage(String path, {BoxFit fit = BoxFit.cover}) {
+  if (path.trim().isEmpty) return _brokenImagePlaceholder();
+  final file = File(path);
+  if (!file.existsSync()) return _brokenImagePlaceholder();
+  return Image.file(file, fit: fit);
+}
+
+Widget _brokenImagePlaceholder() {
+  return Container(
+    color: Colors.white.withValues(alpha: 0.08),
+    child: Center(
+      child: Icon(Icons.broken_image_outlined, color: Colors.white.withValues(alpha: 0.4), size: 40),
+    ),
+  );
 }
 
 String _valueAsText(dynamic value) {

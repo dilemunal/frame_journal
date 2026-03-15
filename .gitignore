@@ -46,3 +46,6 @@ app.*.map.json
 yol_haritasi.md
 todo.md
 fe_todo.md
+
+# Misplaced/imported project folders (do not commit)
+lib/features/entry/Documents/
