@@ -383,8 +383,21 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
       return;
     }
 
-    final createdAt = DateTime.now();
     final userId = ref.read(currentUserIdProvider);
+    if (userId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Oturum bilgisi bulunamadı, lütfen tekrar giriş yapın.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final createdAt = DateTime.now();
     try {
       await db.into(db.appEntries).insert(
             AppEntriesCompanion.insert(
@@ -417,6 +430,18 @@ class _EntryScreenState extends ConsumerState<EntryScreen>
       }
       return;
     }
+
+    unawaited(
+      ref.read(entryRemoteServiceProvider).pushEntry({
+        'freeText': content,
+        'mood': moodEmojiStr,
+        'valuesJson': valuesJsonStr,
+        'weatherJson': weatherJson,
+        'locationJson': locationJson,
+        'templateId': widget.templateId,
+        'createdAt': createdAt.toIso8601String(),
+      }),
+    );
 
     await ref.read(rhythmCompletionsProvider.notifier).markFromEntryTime(createdAt);
     ref.invalidate(recentEntriesProvider);

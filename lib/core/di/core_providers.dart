@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/auth/application/auth_notifier.dart';
 import '../auth/token_storage.dart';
@@ -8,6 +7,7 @@ import '../database/app_database.dart';
 import '../database/seed_templates.dart';
 import '../models/atmosphere_data.dart';
 import '../network/api_client.dart';
+import '../services/entry_remote_service.dart';
 import '../services/location_service.dart';
 import '../services/weather_service.dart';
 
@@ -21,6 +21,10 @@ final Provider<TokenStorage> tokenStorageProvider = Provider<TokenStorage>((
   return TokenStorage();
 });
 
+final Provider<EntryRemoteService> entryRemoteServiceProvider =
+    Provider<EntryRemoteService>((ref) =>
+        EntryRemoteService(apiClient: ref.read(apiClientProvider)));
+
 final Provider<AppDatabase> appDatabaseProvider = Provider<AppDatabase>((ref) {
   return AppDatabase();
 });
@@ -33,11 +37,17 @@ final FutureProvider<List<JournalTemplate>> journalTemplatesProvider =
       return db.select(db.journalTemplates).get();
     });
 
+/// Giriş yapan kullanıcının backend id'si. Tek kaynak — tüm okumalar buradan.
+final Provider<int?> currentUserIdProvider = Provider<int?>((ref) {
+  return ref.watch(authNotifierProvider).userId;
+});
+
 /// Şablon bazlı entry sayısı. templateId -> count. Sadece templateId dolu entry'ler.
 final FutureProvider<Map<int, int>> templateUsageCountProvider =
     FutureProvider<Map<int, int>>((ref) async {
-  final db = ref.read(appDatabaseProvider);
   final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return {};
+  final db = ref.read(appDatabaseProvider);
   final entries = await (db.select(db.appEntries)
         ..where((e) => e.userId.equals(userId)))
       .get();
@@ -61,57 +71,12 @@ final templateFieldsProvider =
       .get();
 });
 
-/// Yerel kullanıcı id (giriş yokken veya eski veri ile uyumluluk).
-const int kLocalUserId = 1;
-
-/// Giriş yapan kullanıcıya göre yerel veri ayrımı. E-posta ile stabil id (aynı mail = aynı id).
-final Provider<int> currentUserIdProvider = Provider<int>((ref) {
-  final email = ref.watch(authNotifierProvider).email;
-  if (email == null || email.isEmpty) return kLocalUserId;
-  final id = email.hashCode.abs();
-  return id == 0 ? kLocalUserId : id;
-});
-
-const _kLegacyEntriesMigratedKey = 'legacy_entries_migrated';
-
-/// Tek seferlik: user_id = 1 olan tüm girişleri giriş yapan kullanıcıya taşır (test@frame.app vb. eski kayıtlar görünsün).
-final FutureProvider<void> legacyEntriesMigrationProvider =
-    FutureProvider<void>((ref) async {
-  final auth = ref.read(authNotifierProvider);
-  if (!auth.isAuthenticated || auth.email == null || auth.email!.isEmpty) {
-    return;
-  }
-  final userId = ref.read(currentUserIdProvider);
-  if (userId == kLocalUserId) return;
-
-  final prefs = await SharedPreferences.getInstance();
-  if (prefs.getBool(_kLegacyEntriesMigratedKey) == true) return;
-
-  final db = ref.read(appDatabaseProvider);
-  await (db.update(db.appEntries)..where((e) => e.userId.equals(kLocalUserId)))
-      .write(AppEntriesCompanion(userId: Value(userId)));
-
-  await prefs.setBool(_kLegacyEntriesMigratedKey, true);
-
-  ref.invalidate(recentEntriesProvider);
-  ref.invalidate(memoryEntriesProvider);
-  ref.invalidate(filteredMemoryEntriesProvider);
-  ref.invalidate(usedTemplatesProvider);
-  ref.invalidate(templateUsageCountProvider);
-  ref.invalidate(entryDetailProvider);
-  ref.invalidate(last30DaysEntryCountProvider);
-  ref.invalidate(last14DaysMoodProvider);
-  ref.invalidate(hourDistributionProvider);
-  ref.invalidate(thisWeekEntriesProvider);
-  ref.invalidate(pastYearsTodayEntriesProvider);
-  ref.invalidate(filmRollFramesProvider);
-});
-
 /// Son 3 giriş + şablon bilgisi (kart rengi/ikon için).
 final FutureProvider<List<(AppEntry, JournalTemplate?)>> recentEntriesProvider =
     FutureProvider<List<(AppEntry, JournalTemplate?)>>((ref) async {
-      final db = ref.read(appDatabaseProvider);
       final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) return [];
+      final db = ref.read(appDatabaseProvider);
       final entries =
           await (db.select(db.appEntries)
                 ..where((e) => e.userId.equals(userId))
@@ -139,8 +104,9 @@ final FutureProvider<List<(AppEntry, JournalTemplate?)>> recentEntriesProvider =
 /// Hafıza kartı: son 20 giriş + şablon (kart listesi için).
 final FutureProvider<List<(AppEntry, JournalTemplate?)>> memoryEntriesProvider =
     FutureProvider<List<(AppEntry, JournalTemplate?)>>((ref) async {
-      final db = ref.read(appDatabaseProvider);
       final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) return [];
+      final db = ref.read(appDatabaseProvider);
       final entries =
           await (db.select(db.appEntries)
                 ..where((e) => e.userId.equals(userId))
@@ -168,10 +134,11 @@ final FutureProvider<List<(AppEntry, JournalTemplate?)>> memoryEntriesProvider =
 /// Filtrelenebilir hafıza: (filterId, limit). templateId null = tümü, -1 = serbest, >0 = şablon.
 final filteredMemoryEntriesProvider =
     FutureProvider.family<List<(AppEntry, JournalTemplate?)>, (int?, int)>((ref, params) async {
+      final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) return [];
       final filterId = params.$1;
       final limit = params.$2;
       final db = ref.read(appDatabaseProvider);
-      final userId = ref.watch(currentUserIdProvider);
       final cap = limit > 500 ? 500 : limit;
       final entries = await (db.select(db.appEntries)
             ..where((e) => e.userId.equals(userId))
@@ -217,8 +184,9 @@ class UsedTemplateChip {
 
 final FutureProvider<List<UsedTemplateChip>> usedTemplatesProvider =
     FutureProvider<List<UsedTemplateChip>>((ref) async {
-      final db = ref.read(appDatabaseProvider);
       final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) return [];
+      final db = ref.read(appDatabaseProvider);
       final entries = await (db.select(db.appEntries)
             ..where((e) => e.userId.equals(userId)))
           .get();
@@ -275,8 +243,9 @@ class DefaultTemplateNotifier {
 /// Tek giriş detayı (id ile). Giriş bulunamazsa veya başka kullanıcıya aitse null döner.
 final entryDetailProvider =
     FutureProvider.family<(AppEntry, JournalTemplate?)?, int>((ref, id) async {
-  final db = ref.read(appDatabaseProvider);
   final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return null;
+  final db = ref.read(appDatabaseProvider);
   final entries = await (db.select(db.appEntries)
         ..where((e) => e.id.equals(id) & e.userId.equals(userId)))
       .get();
@@ -311,8 +280,9 @@ String _dateKey(DateTime d) {
 /// Son 30 günün her günü için entry sayısı. Key: "YYYY-MM-DD", value: count.
 final FutureProvider<Map<String, int>> last30DaysEntryCountProvider =
     FutureProvider<Map<String, int>>((ref) async {
-  final db = ref.read(appDatabaseProvider);
   final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return {};
+  final db = ref.read(appDatabaseProvider);
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, now.day)
       .subtract(const Duration(days: 30));
@@ -333,8 +303,9 @@ final FutureProvider<Map<String, int>> last30DaysEntryCountProvider =
 /// Son 14 günün her günü için o günün son entry'sinin mood'u. (tarih, mood emoji); yoksa null.
 final FutureProvider<List<(DateTime, String?)>> last14DaysMoodProvider =
     FutureProvider<List<(DateTime, String?)>>((ref) async {
-  final db = ref.read(appDatabaseProvider);
   final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return [];
+  final db = ref.read(appDatabaseProvider);
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, now.day)
       .subtract(const Duration(days: 14));
@@ -364,8 +335,9 @@ final FutureProvider<List<(DateTime, String?)>> last14DaysMoodProvider =
 /// Saat dağılımı: morning 6–12, afternoon 12–18, night 18–6. AppEntries createdAt.hour'a göre.
 final FutureProvider<Map<String, int>> hourDistributionProvider =
     FutureProvider<Map<String, int>>((ref) async {
-  final db = ref.read(appDatabaseProvider);
   final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return {'morning': 0, 'afternoon': 0, 'night': 0};
+  final db = ref.read(appDatabaseProvider);
   final entries = await (db.select(db.appEntries)
         ..where((e) => e.userId.equals(userId)))
       .get();
@@ -386,8 +358,9 @@ final FutureProvider<Map<String, int>> hourDistributionProvider =
 /// Bu haftanın her günü (Pazartesi–Pazar) için (entry sayısı, mood). Key: günün 00:00 DateTime.
 final FutureProvider<Map<DateTime, (int, String?)>> thisWeekEntriesProvider =
     FutureProvider<Map<DateTime, (int, String?)>>((ref) async {
-  final db = ref.read(appDatabaseProvider);
   final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return {};
+  final db = ref.read(appDatabaseProvider);
   final now = DateTime.now();
   final weekday = now.weekday;
   final monday = DateTime(now.year, now.month, now.day)
@@ -427,8 +400,9 @@ final FutureProvider<Map<DateTime, (int, String?)>> thisWeekEntriesProvider =
 /// Geçmişten bugün: bu ay ve gün ile eşleşen geçmiş yıllardaki entry'ler. En fazla 3, yeniden eskiye.
 final FutureProvider<List<AppEntry>> pastYearsTodayEntriesProvider =
     FutureProvider<List<AppEntry>>((ref) async {
-  final db = ref.read(appDatabaseProvider);
   final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return [];
+  final db = ref.read(appDatabaseProvider);
   final now = DateTime.now();
   final month = now.month;
   final day = now.day;
@@ -452,8 +426,9 @@ final FutureProvider<List<AppEntry>> pastYearsTodayEntriesProvider =
 /// Film Roll: her gün için tek kare (o günün en son entry'si). Tarihe göre yeniden eskiye.
 final FutureProvider<List<(DateTime, AppEntry)>> filmRollFramesProvider =
     FutureProvider<List<(DateTime, AppEntry)>>((ref) async {
-  final db = ref.read(appDatabaseProvider);
   final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return [];
+  final db = ref.read(appDatabaseProvider);
   final entries = await (db.select(db.appEntries)
         ..where((e) => e.userId.equals(userId))
         ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))

@@ -1,9 +1,13 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/legal/privacy_notice.dart';
 
 
 const _kOnboardingDoneKey = 'onboarding_done';
@@ -90,7 +94,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 32),
+                    padding: const EdgeInsets.only(bottom: 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(3, (i) {
@@ -106,6 +110,43 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           ),
                         );
                       }),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 12,
+                        ),
+                        children: [
+                          const TextSpan(
+                            text: 'Devam ederek ',
+                          ),
+                          TextSpan(
+                            text: 'Gizlilik Politikamızı',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => launchUrl(Uri.parse(privacyPolicyUrl)),
+                          ),
+                          const TextSpan(text: ' ve '),
+                          TextSpan(
+                            text: 'Kullanım Koşullarımızı',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => launchUrl(Uri.parse(termsUrl)),
+                          ),
+                          const TextSpan(text: ' kabul etmiş olursunuz.'),
+                        ],
+                      ),
                     ),
                   ),
                 ],

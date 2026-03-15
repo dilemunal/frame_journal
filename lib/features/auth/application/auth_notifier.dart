@@ -7,15 +7,25 @@ import '../../../core/network/api_client.dart';
 import '../../../core/di/core_providers.dart';
 
 class AuthState {
-  const AuthState({required this.isAuthenticated, this.email});
+  const AuthState({
+    required this.isAuthenticated,
+    this.email,
+    this.userId,
+  });
 
   final bool isAuthenticated;
   final String? email;
+  final int? userId;
 
-  AuthState copyWith({bool? isAuthenticated, String? email}) {
+  AuthState copyWith({
+    bool? isAuthenticated,
+    String? email,
+    int? userId,
+  }) {
     return AuthState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       email: email ?? this.email,
+      userId: userId ?? this.userId,
     );
   }
 }
@@ -40,8 +50,14 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> _checkPersistedLogin() async {
     final token = await _tokenStorage.readAccessToken();
+    final userId = await _tokenStorage.readUserId();
+    final email = await _tokenStorage.readEmail();
     if (token != null && token.isNotEmpty) {
-      state = state.copyWith(isAuthenticated: true);
+      state = AuthState(
+        isAuthenticated: true,
+        email: email,
+        userId: userId,
+      );
     }
   }
 
@@ -79,7 +95,16 @@ class AuthNotifier extends Notifier<AuthState> {
       refreshToken: refreshToken,
     );
 
-    state = AuthState(isAuthenticated: true, email: email);
+    final userObj = data['user'] as Map<String, dynamic>?;
+    final userId = userObj?['id'] as int?;
+    await _tokenStorage.saveUserId(userId);
+    await _tokenStorage.saveEmail(email);
+
+    state = AuthState(
+      isAuthenticated: true,
+      email: email,
+      userId: userId,
+    );
   }
 
   Future<void> loginWithGoogle() async {
@@ -130,7 +155,16 @@ class AuthNotifier extends Notifier<AuthState> {
         refreshToken: refreshToken,
       );
 
-      state = AuthState(isAuthenticated: true, email: googleUser.email);
+      final userObj = data['user'] as Map<String, dynamic>?;
+      final userId = userObj?['id'] as int?;
+      await _tokenStorage.saveUserId(userId);
+      await _tokenStorage.saveEmail(googleUser.email);
+
+      state = AuthState(
+        isAuthenticated: true,
+        email: googleUser.email,
+        userId: userId,
+      );
       assert(() {
         // ignore: avoid_print
         print(
@@ -196,7 +230,7 @@ class AuthNotifier extends Notifier<AuthState> {
       } catch (_) {}
     }
 
-    await _tokenStorage.clear();
+    await _tokenStorage.clearAll();
     state = const AuthState(isAuthenticated: false);
   }
 }
